@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	northTypes "github.com/go-lazyer/go-north/types"
+	northTypes "github.com/go-lazyer/north/types"
 )
 
 type BaseQuery interface {

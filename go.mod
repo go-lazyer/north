@@ -1,4 +1,4 @@
-module github.com/go-lazyer/go-north
+module github.com/go-lazyer/north
 
 go 1.21
 

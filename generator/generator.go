@@ -10,8 +10,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/go-lazyer/go-north/files"
-	northStrings "github.com/go-lazyer/go-north/strings"
+	"github.com/go-lazyer/north/files"
+	northStrings "github.com/go-lazyer/north/strings"
 )
 
 type Generator struct {

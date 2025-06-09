@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-lazyer/go-north/files"
+	"github.com/go-lazyer/north/files"
 )
 
 const (
