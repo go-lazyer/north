@@ -130,6 +130,18 @@ func (r *Request) PostStream(u string, bin []byte) ([]byte, int, error) {
 
 	return r.Do("POST", u, bytes.NewReader(bin))
 }
+
+// 二进制
+func (r *Request) PutStream(u string, bin []byte) ([]byte, int, error) {
+	if r.header == nil {
+		r.header = make(map[string]string)
+	}
+
+	r.header["Content-Type"] = CONTENT_TYPE_STREAM
+
+	return r.Do("PUT", u, bytes.NewReader(bin))
+}
+
 func (r *Request) PostData(u string, fileName string, fileHeader *multipart.FileHeader, data map[string]string) ([]byte, int, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -166,6 +178,10 @@ func (r *Request) PostData(u string, fileName string, fileHeader *multipart.File
 	r.header["Content-Type"] = writer.FormDataContentType()
 
 	return r.Do("POST", u, strings.NewReader(body.String()))
+}
+
+func (r *Request) Delete(u string) ([]byte, int, error) {
+	return r.Do("DELETE", u, nil)
 }
 func (r *Request) Download(url string, file string) error {
 	// 创建一个文件用于保存
