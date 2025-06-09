@@ -13,7 +13,7 @@ const (
 	RIGHT_JOIN = "right join" // right join
 )
 
-type Norm struct {
+type Orm struct {
 	orderBy    []string //排序字段
 	groupBy    []string //分组字段
 	pageStart  int
@@ -31,11 +31,11 @@ type Norm struct {
 	columns    []string
 }
 
-func CreateNorm() *Norm {
-	return new(Norm)
+func CreateOrm() *Orm {
+	return new(Orm)
 }
 
-func (s *Norm) Where(query ...BaseQuery) *Norm {
+func (s *Orm) Where(query ...BaseQuery) *Orm {
 	if s.querys == nil {
 		s.querys = make([]BaseQuery, 0)
 	}
@@ -43,66 +43,66 @@ func (s *Norm) Where(query ...BaseQuery) *Norm {
 	return s
 }
 
-func (s *Norm) Update(m map[string]any) *Norm {
+func (s *Orm) Update(m map[string]any) *Orm {
 	s.update = m
 	return s
 }
-func (s *Norm) Updates(m []map[string]any) *Norm {
+func (s *Orm) Updates(m []map[string]any) *Orm {
 	s.updates = m
 	return s
 }
-func (s *Norm) Insert(m map[string]any) *Norm {
+func (s *Orm) Insert(m map[string]any) *Orm {
 	s.insert = m
 	return s
 }
-func (s *Norm) Inserts(m []map[string]any) *Norm {
+func (s *Orm) Inserts(m []map[string]any) *Orm {
 	s.inserts = m
 	return s
 }
 
-func (s *Norm) Join(join ...*Join) *Norm {
+func (s *Orm) Join(join ...*Join) *Orm {
 	if s.joins == nil {
 		s.joins = make([]*Join, 0)
 	}
 	s.joins = append(s.joins, join...)
 	return s
 }
-func (s *Norm) Table(tableName string) *Norm {
+func (s *Orm) Table(tableName string) *Orm {
 	s.tableName = tableName
 	return s
 }
 
 // 表的别名
-func (s *Norm) TableAlias(tableName, tableAlias string) *Norm {
+func (s *Orm) TableAlias(tableName, tableAlias string) *Orm {
 	s.tableName = tableName
 	s.tableAlias = tableAlias
 	return s
 }
-func (s *Norm) Primary(primary string) *Norm {
+func (s *Orm) Primary(primary string) *Orm {
 	s.primary = primary
 	return s
 }
-func (s *Norm) Result(columns ...string) *Norm {
+func (s *Orm) Result(columns ...string) *Orm {
 	s.columns = columns
 	return s
 }
-func (s *Norm) PageNum(pageNum int) *Norm {
+func (s *Orm) PageNum(pageNum int) *Orm {
 	s.pageNum = pageNum
 	return s
 }
-func (s *Norm) PageStart(pageStart int) *Norm {
+func (s *Orm) PageStart(pageStart int) *Orm {
 	s.pageStart = pageStart
 	return s
 }
-func (s *Norm) PageSize(pageSize int) *Norm {
+func (s *Orm) PageSize(pageSize int) *Orm {
 	s.pageSize = pageSize
 	return s
 }
-func (s *Norm) OrderBy(orderBy []string) *Norm {
+func (s *Orm) OrderBy(orderBy []string) *Orm {
 	s.orderBy = orderBy
 	return s
 }
-func (s *Norm) AddOrderBy(name string, orderByType string) *Norm {
+func (s *Orm) AddOrderBy(name string, orderByType string) *Orm {
 	if s.orderBy == nil {
 		s.orderBy = make([]string, 0)
 	}
@@ -110,11 +110,11 @@ func (s *Norm) AddOrderBy(name string, orderByType string) *Norm {
 	return s
 }
 
-func (s *Norm) GroupBy(groupBy []string) *Norm {
+func (s *Orm) GroupBy(groupBy []string) *Orm {
 	s.groupBy = groupBy
 	return s
 }
-func (s *Norm) AddGroupBy(tableName, name string) *Norm {
+func (s *Orm) AddGroupBy(tableName, name string) *Orm {
 	if s.groupBy == nil {
 		s.groupBy = make([]string, 0)
 	}
@@ -122,7 +122,7 @@ func (s *Norm) AddGroupBy(tableName, name string) *Norm {
 	return s
 }
 
-func (s *Norm) CountSql(prepare bool) (string, []any, error) {
+func (s *Orm) CountSql(prepare bool) (string, []any, error) {
 	if s.tableName == "" {
 		return "", nil, errors.New("tableName cannot be empty")
 	}
@@ -186,7 +186,7 @@ func (s *Norm) CountSql(prepare bool) (string, []any, error) {
 	return sql.String(), params, nil
 }
 
-func (s *Norm) SelectSql(prepare bool) (string, []any, error) {
+func (s *Orm) SelectSql(prepare bool) (string, []any, error) {
 	if s.tableName == "" {
 		return "", nil, errors.New("tableName cannot be empty")
 	}
@@ -288,7 +288,7 @@ func (s *Norm) SelectSql(prepare bool) (string, []any, error) {
 	return sql.String(), params, nil
 }
 
-func (s *Norm) DeleteSql(prepare bool) (string, []any, error) {
+func (s *Orm) DeleteSql(prepare bool) (string, []any, error) {
 	if s.tableName == "" {
 		return "", nil, errors.New("tableName cannot be empty")
 	}
@@ -311,7 +311,7 @@ func (s *Norm) DeleteSql(prepare bool) (string, []any, error) {
 
 	return sql.String(), params, nil
 }
-func (s *Norm) InsertSql(prepare bool) (string, []any, error) {
+func (s *Orm) InsertSql(prepare bool) (string, []any, error) {
 
 	if s.tableName == "" {
 		return "", nil, errors.New("tableName  cannot be empty")
@@ -393,7 +393,7 @@ func (s *Norm) InsertSql(prepare bool) (string, []any, error) {
 	return sql.String(), params, nil
 }
 
-func (s *Norm) UpdateSql(prepare bool) (string, []any, error) {
+func (s *Orm) UpdateSql(prepare bool) (string, []any, error) {
 
 	if s.tableName == "" {
 		return "", nil, errors.New("tableName  cannot be empty")

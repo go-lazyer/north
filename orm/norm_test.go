@@ -47,27 +47,27 @@ func TestFull(t *testing.T) {
 func TestGenerator_CountSql(t *testing.T) {
 	//select count(1) count from user where t.id>1000
 	query := NewGreaterThanQuery("id", 1000)
-	gen := CreateNorm().Table("user").Where(query)
+	gen := CreateOrm().Table("user").Where(query)
 	fmt.Println(gen.CountSql(false))
 }
 
 func TestGenerator_GroupSql(t *testing.T) {
 	//select count(1) count from user where t.id>1000
 	query := NewGreaterThanQuery("id", 1000)
-	gen := CreateNorm().Table("user").Where(query)
+	gen := CreateOrm().Table("user").Where(query)
 	fmt.Println(gen.CountSql(false))
 }
 
 func TestGenerator_SelectSql1(t *testing.T) {
 	//select * from user
 	query1 := NewBoolQuery()
-	gen := CreateNorm().Table("user").Where(query1)
+	gen := CreateOrm().Table("user").Where(query1)
 	fmt.Println(gen.SelectSql(false))
 }
 func TestGenerator_SelectSql2(t *testing.T) {
 	//select * from user where t.id=1000
 	query := NewEqualQuery("id", 1000)
-	gen := CreateNorm().Table("user").Where(query)
+	gen := CreateOrm().Table("user").Where(query)
 	fmt.Println(gen.SelectSql(false))
 }
 func TestGenerator_SelectSql3(t *testing.T) {
@@ -75,7 +75,7 @@ func TestGenerator_SelectSql3(t *testing.T) {
 	idQuery := NewEqualQuery("id", 1000)
 	ageQuery := NewGreaterThanQuery("age", 20)
 	boolQuery := NewBoolQuery().And(idQuery, ageQuery)
-	gen := CreateNorm().Table("user").Where(boolQuery).AddOrderBy("age", "desc")
+	gen := CreateOrm().Table("user").Where(boolQuery).AddOrderBy("age", "desc")
 	fmt.Println(gen.SelectSql(false))
 }
 func TestGenerator_SelectSql4(t *testing.T) {
@@ -84,7 +84,7 @@ func TestGenerator_SelectSql4(t *testing.T) {
 	ageQuery := NewGreaterThanQuery("age", 20)
 	boolQuery := NewBoolQuery().And(idQuery, ageQuery)
 	ageQuery2 := NewLessThanOrEqualQuery("age", 10)
-	gen := CreateNorm().Result("id", "name", "age").Table("user").Where(boolQuery, ageQuery2).AddOrderBy("age", "desc").AddOrderBy("id", "asc")
+	gen := CreateOrm().Result("id", "name", "age").Table("user").Where(boolQuery, ageQuery2).AddOrderBy("age", "desc").AddOrderBy("id", "asc")
 	fmt.Println(gen.SelectSql(false))
 }
 func TestGenerator_SelectSql5(t *testing.T) {
@@ -92,14 +92,14 @@ func TestGenerator_SelectSql5(t *testing.T) {
 	idQuery := NewEqualQuery("id", 1000)
 
 	join := NewAliasJoin("order", "o", INNER_JOIN).Condition("u", "id", "o", "user_id")
-	gen := CreateNorm().Result("u.id", "o.id").TableAlias("user", "u").Join(join).Where(idQuery)
+	gen := CreateOrm().Result("u.id", "o.id").TableAlias("user", "u").Join(join).Where(idQuery)
 	fmt.Println(gen.SelectSql(false))
 }
 
 func TestGenerator_SelectSql6(t *testing.T) {
 	// select user.sex,count(user.sex) count  from user group by user.sex
 
-	gen := CreateNorm().Result("user.sex", "count(user.sex) count").Table("user").AddGroupBy("user", "sex")
+	gen := CreateOrm().Result("user.sex", "count(user.sex) count").Table("user").AddGroupBy("user", "sex")
 	fmt.Println(gen.SelectSql(false))
 }
 
@@ -108,7 +108,7 @@ func TestGenerator_SelectSql7(t *testing.T) {
 	idQuery := NewEqualQuery("id", 1000)
 
 	join := NewAliasJoin("order", "o", INNER_JOIN).Condition("u", "id", "o", "user_id").Where(NewFieldGreaterThanQuery("o", "create_time", "u", "create_time"))
-	gen := CreateNorm().Result("u.id", "o.id").TableAlias("user", "u").Join(join).Where(idQuery)
+	gen := CreateOrm().Result("u.id", "o.id").TableAlias("user", "u").Join(join).Where(idQuery)
 	fmt.Println(gen.SelectSql(true))
 }
 
@@ -119,7 +119,7 @@ func TestGenerator_UpdateSql(t *testing.T) {
 		"age":  21,
 		"name": "lazyer",
 	}
-	gen := CreateNorm().Table("user").Where(query).Update(set)
+	gen := CreateOrm().Table("user").Where(query).Update(set)
 	fmt.Println(gen.UpdateSql(false))
 }
 
@@ -167,7 +167,7 @@ func TestGenerator_UpdatesSql(t *testing.T) {
 		10001, 10002, 10003,
 	}
 	query := NewInQuery("dwid", dwids)
-	gen := CreateNorm().Table("user").Where(query).Primary("dwid").Updates(set)
+	gen := CreateOrm().Table("user").Where(query).Primary("dwid").Updates(set)
 	fmt.Print(gen.UpdateSql(false))
 }
 
@@ -193,7 +193,7 @@ func TestGenerator_InsertsSql(t *testing.T) {
 	dwids := []map[string]any{
 		f1, f2, f3,
 	}
-	gen := CreateNorm().Table("user").Inserts(dwids)
+	gen := CreateOrm().Table("user").Inserts(dwids)
 	fmt.Print(gen.InsertSql(false))
 }
 
@@ -203,6 +203,6 @@ func TestGenerator_InsertSql(t *testing.T) {
 		"sex":  "girl",
 		"age":  "30",
 	}
-	gen := CreateNorm().Table("user").Insert(f3)
+	gen := CreateOrm().Table("user").Insert(f3)
 	fmt.Print(gen.InsertSql(false))
 }

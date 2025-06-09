@@ -1,4 +1,4 @@
-package http
+package nhttp
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-lazyer/north/files"
+	nfile "github.com/go-lazyer/north/file"
 )
 
 const (
@@ -170,7 +170,7 @@ func (r *Request) PostData(u string, fileName string, fileHeader *multipart.File
 func (r *Request) Download(url string, file string) error {
 	// 创建一个文件用于保存
 	filePath, _ := filepath.Split(file)
-	if err := files.CreateDir(filePath); err != nil {
+	if err := nfile.CreateDir(filePath); err != nil {
 		return errors.New("create filePath error")
 	}
 	out, err := os.Create(file)

@@ -1,4 +1,4 @@
-package strings
+package nstring
 
 import (
 	"bytes"
@@ -46,4 +46,12 @@ func ToLowerCamelCase(str string) string {
 func IsNumeric(str string) bool {
 	_, err := strconv.ParseFloat(str, 64)
 	return err == nil
+}
+
+// 首字母大写
+func ToUpperFirst(str string) string {
+	if len(str) == 0 {
+		return ""
+	}
+	return strings.ToUpper(str[0:1]) + str[1:]
 }

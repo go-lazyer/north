@@ -1,4 +1,4 @@
-package generator
+package ngen
 
 import (
 	"database/sql"
@@ -10,8 +10,8 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/go-lazyer/north/files"
-	northStrings "github.com/go-lazyer/north/strings"
+	nfile "github.com/go-lazyer/north/file"
+	nstring "github.com/go-lazyer/north/string"
 )
 
 type Generator struct {
@@ -206,8 +206,8 @@ func getFields(tableName, driverName string, db *sql.DB) ([]Field, []Field, erro
 		if err != nil {
 			panic(err)
 		}
-		field.FieldName = northStrings.ToUpperCamelCase(field.ColumnName)
-		field.ColumnNameLowerCamel = northStrings.ToLowerCamelCase(field.ColumnName)
+		field.FieldName = nstring.ToUpperCamelCase(field.ColumnName)
+		field.ColumnNameLowerCamel = nstring.ToLowerCamelCase(field.ColumnName)
 		field.ColumnNameUpper = strings.ToUpper(field.ColumnName)
 		field.FieldType = dbType[field.ColumnType].baseType
 		field.FieldTypeDefault = dbType[field.ColumnType].defaultValue
@@ -260,8 +260,8 @@ func (gen *Generator) Gen(modules []Module) error {
 		module.CreateTime = time.Now().Format("2006-01:02 15:04:05.006")
 		module.Fields = fields
 		module.PrimaryKeyFields = primaryKeyFields
-		module.TableNameUpperCamel = northStrings.ToUpperCamelCase(tableName)
-		module.TableNameLowerCamel = northStrings.ToLowerCamelCase(tableName)
+		module.TableNameUpperCamel = nstring.ToUpperCamelCase(tableName)
+		module.TableNameLowerCamel = nstring.ToLowerCamelCase(tableName)
 		urls := strings.Split(module.ModulePath, gen.project)
 
 		if module.ModelPackageName == "" {
@@ -339,21 +339,21 @@ func genFile(table *Module, packageName string) {
 		templateStr = getExtendTemplate()
 		filePath = table.ExtendFilePath
 		file = filePath + "/" + table.ExtendFileName
-		if files.IsExist(file) { //view 不覆盖
+		if nfile.IsExist(file) { //view 不覆盖
 			return
 		}
 	} else if packageName == "view" {
 		templateStr = getViewTemplate()
 		filePath = table.ViewFilePath
 		file = filePath + "/" + table.ViewFileName
-		if files.IsExist(file) { //view 不覆盖
+		if nfile.IsExist(file) { //view 不覆盖
 			return
 		}
 	} else if packageName == "param" {
 		templateStr = getParamTemplate()
 		filePath = table.ParamFilePath
 		file = filePath + "/" + table.ParamFileName
-		if files.IsExist(file) { //param 不覆盖
+		if nfile.IsExist(file) { //param 不覆盖
 			return
 		}
 	} else if packageName == "dao" {
@@ -364,14 +364,14 @@ func genFile(table *Module, packageName string) {
 		templateStr = getServiceTemplate()
 		filePath = table.ServiceFilePath
 		file = filePath + "/" + table.ServiceFileName
-		if files.IsExist(file) { //service 不覆盖
+		if nfile.IsExist(file) { //service 不覆盖
 			return
 		}
 	} else if packageName == "controller" {
 		templateStr = getController()
 		filePath = table.ControllerFilePath
 		file = filePath + "/" + table.ControllerFileName
-		if files.IsExist(file) { //controller 不覆盖
+		if nfile.IsExist(file) { //controller 不覆盖
 			return
 		}
 	}
@@ -382,7 +382,7 @@ func genFile(table *Module, packageName string) {
 		return
 	}
 	// 第二步，创建文件目录
-	err = files.CreateDir(filePath)
+	err = nfile.CreateDir(filePath)
 	if err != nil {
 		fmt.Printf("create path:%v err", filePath)
 		return
@@ -497,19 +497,19 @@ func getParamTemplate() string {
 			}`
 }
 func getDaoTemplate() string {
-	return `// Create by go-generator  {{.CreateTime}}
+	return `// Create by go-ormerator  {{.CreateTime}}
 		  package dao
 		  
 		  import (
 		  	 "database/sql"
-			 "github.com/go-lazyer/go-north"
+			 norm "github.com/go-lazyer/north/orm"
 			 "{{.ModelPackagePath}}"
 			 "github.com/pkg/errors"
 		  )
 
-		  // count by gen
-		  func CountByGen(gen  *north.North) (int64, error) {
-			 sqlStr, params, err := gen.CountSql(true)
+		  // count by orm
+		  func CountByOrm(orm  *norm.Orm) (int64, error) {
+			 sqlStr, params, err := orm.CountSql(true)
 			 if err != nil {
 				return 0,errors.WithStack(err)
 			 }
@@ -522,7 +522,7 @@ func getDaoTemplate() string {
 			 if err != nil {
 				return 0, errors.WithStack(err)
 			 }
-			 count, err := north.PrepareCount(sqlStr, params, ds)
+			 count, err := norm.PrepareCount(sqlStr, params, ds)
 			 if err != nil {
 				return 0,errors.WithStack(err)
 			 }
@@ -533,17 +533,17 @@ func getDaoTemplate() string {
 		  // query first by primaryKey
 		  func QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
 			 {{ if eq (len .PrimaryKeyFields) 1 -}} 
-			 query := north.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}})
+			 query := norm.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}})
 			 {{ else -}}
-			 query := north.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(north.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
+			 query := norm.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(norm.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
 			 {{end}}
-			 gen := north.CreateNorth().Table(model.TABLE_NAME).Where(query)
-			 return QuerySingleByGen(gen)
+			 orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(query)
+			 return QuerySingleByOrm(orm)
 		  }
 		  {{ end -}}
-		  // query first by gen
-		  func QuerySingleByGen(gen  *north.North) (model.{{.TableNameUpperCamel}}Model, error) {
-			 sqlStr, params, err := gen.SelectSql(true)
+		  // query first by orm
+		  func QuerySingleByOrm(orm  *norm.Orm) (model.{{.TableNameUpperCamel}}Model, error) {
+			 sqlStr, params, err := orm.SelectSql(true)
 			 if err != nil {
 				return model.{{.TableNameUpperCamel}}Model{},errors.WithStack(err)
 			 }
@@ -561,17 +561,17 @@ func getDaoTemplate() string {
 		  {{if eq (len .PrimaryKeyFields) 1}} 
 		  // query map by primaryKeys
 		  func QueryMapByPrimaryKeys(primaryKeys []any) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
-			 gen := north.CreateNorth().Table(model.TABLE_NAME).Where(north.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
-			 sqlStr, params, err := gen.SelectSql(true)
+			 orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
+			 sqlStr, params, err := orm.SelectSql(true)
 			 if err != nil {
 				return nil,errors.WithStack(err)
 			 }
 			 return QueryMapBySql(sqlStr, params)
 		  }
 		  
-		  // query map by gen
-		  func QueryMapByGen(gen  *north.North) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
-			 sqlStr, params, err := gen.SelectSql(true)
+		  // query map by orm
+		  func QueryMapByOrm(orm  *norm.Orm) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
+			 sqlStr, params, err := orm.SelectSql(true)
 			 if err != nil {
 				return nil, errors.WithStack(err)
 			 }
@@ -597,9 +597,9 @@ func getDaoTemplate() string {
 		  }
 		  {{end}}
  
-		  // query by gen
-		  func QueryByGen(gen  *north.North) ([]model.{{.TableNameUpperCamel}}Model, error) {
-			 sqlStr, params, err := gen.SelectSql(true)
+		  // query by orm
+		  func QueryByOrm(orm  *norm.Orm) ([]model.{{.TableNameUpperCamel}}Model, error) {
+			 sqlStr, params, err := orm.SelectSql(true)
 			 if err != nil {
 				return nil,errors.WithStack(err)
 			 }
@@ -611,7 +611,7 @@ func getDaoTemplate() string {
 			 if err != nil {
 				return nil, errors.WithStack(err)
 			 }
-			 {{.TableNameLowerCamel}}s, err := north.PrepareQuery[model.{{.TableNameUpperCamel}}Model](sqlStr, params, ds)
+			 {{.TableNameLowerCamel}}s, err := norm.PrepareQuery[model.{{.TableNameUpperCamel}}Model](sqlStr, params, ds)
 			 if err != nil {
 				return nil,errors.WithStack(err)
 			 }
@@ -619,9 +619,9 @@ func getDaoTemplate() string {
 		  }
  
  
-		  // query extend by gen
-		  func QueryExtendByGen(gen  *north.North) ([]model.{{.TableNameUpperCamel}}Extend, error) {
-			 sqlStr, params, err := gen.SelectSql(true)
+		  // query extend by orm
+		  func QueryExtendByOrm(orm  *norm.Orm) ([]model.{{.TableNameUpperCamel}}Extend, error) {
+			 sqlStr, params, err := orm.SelectSql(true)
 			 if err != nil {
 				return nil,errors.WithStack(err)
 			 }
@@ -633,7 +633,7 @@ func getDaoTemplate() string {
 			 if err != nil {
 				return nil, errors.WithStack(err)
 			 }
-			 {{.TableNameLowerCamel}}Extends, err := north.PrepareQuery[model.{{.TableNameUpperCamel}}Extend](sqlStr, params, ds)
+			 {{.TableNameLowerCamel}}Extends, err := norm.PrepareQuery[model.{{.TableNameUpperCamel}}Extend](sqlStr, params, ds)
 			 if err != nil {
 				return nil,errors.WithStack(err)
 			 }
@@ -649,8 +649,8 @@ func getDaoTemplate() string {
 			return InsertByMapsTx(insertMaps,nil)
 		}
 	
-		func InsertByGen(gen  *north.North) (int64, error) {
-			return InsertByGenTx(gen,nil)
+		func InsertByOrm(orm  *norm.Orm) (int64, error) {
+			return InsertByOrmTx(orm,nil)
 		}
 			
 		func InsertBySql(sqlStr string, params []any) (int64, error) {
@@ -658,18 +658,18 @@ func getDaoTemplate() string {
 		}
 
 		func InsertTx(m model.{{.TableNameUpperCamel}}Model, tx *sql.Tx) (int64, error) {
-			gen := north.CreateNorth().Table(model.TABLE_NAME).Insert(m.ToMap(false))
-			return InsertByGenTx(gen,tx)
+			orm := norm.CreateOrm().Table(model.TABLE_NAME).Insert(m.ToMap(false))
+			return InsertByOrmTx(orm,tx)
 		}
 		
 		//batch insert
 		func InsertByMapsTx(insertMaps []map[string]any, tx *sql.Tx) (int64, error) {
-			gen := north.CreateNorth().Table(model.TABLE_NAME).Inserts(insertMaps)
-			return InsertByGenTx(gen,tx)
+			orm := norm.CreateOrm().Table(model.TABLE_NAME).Inserts(insertMaps)
+			return InsertByOrmTx(orm,tx)
 		}
 	
-		func InsertByGenTx(gen  *north.North, tx *sql.Tx) (int64, error) {
-			sqlStr, params, err := gen.InsertSql(true)
+		func InsertByOrmTx(orm  *norm.Orm, tx *sql.Tx) (int64, error) {
+			sqlStr, params, err := orm.InsertSql(true)
 			if err != nil {
 			return 0, errors.WithStack(err)
 			}
@@ -684,7 +684,7 @@ func getDaoTemplate() string {
 			if tx != nil {
 			ds.Tx = tx
 			}
-			id, err := north.PrepareInsert(sqlStr, params,ds)
+			id, err := norm.PrepareInsert(sqlStr, params,ds)
 			if err != nil {
 			return 0, errors.WithStack(err)
 			}
@@ -704,8 +704,8 @@ func getDaoTemplate() string {
 			return UpdateByMapsTx(updateMaps,nil)
 		}
 		{{end}}
-		func UpdateByGen(gen  *north.North) (int64, error) {
-			return UpdateByGenTx(gen,nil)
+		func UpdateByOrm(orm  *norm.Orm) (int64, error) {
+			return UpdateByOrmTx(orm,nil)
 		}
 		func UpdateBySql(sqlStr string, params []any) (int64, error) {
 			 return UpdateBySqlTx(sqlStr, params,nil)
@@ -714,12 +714,12 @@ func getDaoTemplate() string {
 		{{ if gt (len .PrimaryKeyFields) 0 -}}
 		func UpdateTx(m model.{{.TableNameUpperCamel}}Model, tx *sql.Tx) (int64, error) {
 			{{ if eq (len .PrimaryKeyFields) 1 -}} 
-			query := north.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, m.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}})
+			query := norm.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, m.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}})
 			{{ else -}}
-			query := north.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(north.NewEqualQuery(model.{{ .ColumnNameUpper }}, m.{{.FieldName}}.{{.FieldNullTypeValue}})) {{end}}
+			query := norm.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(norm.NewEqualQuery(model.{{ .ColumnNameUpper }}, m.{{.FieldName}}.{{.FieldNullTypeValue}})) {{end}}
 			{{end -}}
-			gen := north.CreateNorth().Table(model.TABLE_NAME).Update(m.ToMap(false)).Where(query)
-			return UpdateByGenTx(gen,tx)
+			orm := norm.CreateOrm().Table(model.TABLE_NAME).Update(m.ToMap(false)).Where(query)
+			return UpdateByOrmTx(orm,tx)
 		}
 		{{end}}
 
@@ -739,14 +739,14 @@ func getDaoTemplate() string {
 			if len(ids) == 0 {
 			return 0, errors.New("batch update primary not allowed to be nil")
 			}
-			query := north.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, ids)
-			gen := north.CreateNorth().Primary(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}).Table(model.TABLE_NAME).Where(query).Updates(updateMaps)
-			return UpdateByGenTx(gen,tx)
+			query := norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, ids)
+			orm := norm.CreateOrm().Primary(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}).Table(model.TABLE_NAME).Where(query).Updates(updateMaps)
+			return UpdateByOrmTx(orm,tx)
 		}
 		{{end}}
 
-		func UpdateByGenTx(gen  *north.North, tx *sql.Tx) (int64, error) {
-			sqlStr, params, err := gen.UpdateSql(true)
+		func UpdateByOrmTx(orm  *norm.Orm, tx *sql.Tx) (int64, error) {
+			sqlStr, params, err := orm.UpdateSql(true)
 			if err != nil {
 			   return 0, errors.WithStack(err)
 			}
@@ -760,7 +760,7 @@ func getDaoTemplate() string {
 			 if tx != nil {
 				ds.Tx = tx
 			 }
-			 count, err := north.PrepareUpdate(sqlStr, params,ds)
+			 count, err := norm.PrepareUpdate(sqlStr, params,ds)
 			 if err != nil {
 				return 0, errors.WithStack(err)
 			 }
@@ -777,8 +777,8 @@ func getDaoTemplate() string {
 			return DeleteByPrimaryKeysTx(primaryKeys,nil)
 		}
 		{{ end -}}
-		func DeleteByGen(gen  *north.North) (int64, error) {
-			return DeleteByGenTx(gen, nil)
+		func DeleteByOrm(orm  *norm.Orm) (int64, error) {
+			return DeleteByOrmTx(orm, nil)
 		}
 		func DeleteBySql(sqlStr string, params []any) (int64, error) {
 			return DeleteBySqlTx( sqlStr, params,nil)
@@ -787,22 +787,22 @@ func getDaoTemplate() string {
 		{{ if gt (len .PrimaryKeyFields) 0 -}}
 		func DeleteByPrimaryKeyTx({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}, tx *sql.Tx) (int64, error) {
 			{{ if eq (len .PrimaryKeyFields) 1 -}} 
-			gen := north.CreateNorth().Table(model.TABLE_NAME).Where(north.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}}))
+			orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(norm.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}}))
 			{{ else -}}
-			query := north.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(north.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
-			gen := north.CreateNorth().Table(model.TABLE_NAME).Where(query)
+			query := norm.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(norm.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
+			orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(query)
 			{{ end -}}
-			return DeleteByGenTx(gen,tx)
+			return DeleteByOrmTx(orm,tx)
 		}
 		{{ end -}}
 		{{ if eq (len .PrimaryKeyFields) 1 -}}
 		func DeleteByPrimaryKeysTx(primaryKeys []any, tx *sql.Tx) (int64, error) {
-			gen := north.CreateNorth().Table(model.TABLE_NAME).Where(north.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
-			return DeleteByGenTx(gen,tx)
+			orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
+			return DeleteByOrmTx(orm,tx)
 		}
 		{{ end -}}
-		func DeleteByGenTx(gen  *north.North, tx *sql.Tx) (int64, error) {
-			sqlStr, params, err := gen.DeleteSql(true)
+		func DeleteByOrmTx(orm  *norm.Orm, tx *sql.Tx) (int64, error) {
+			sqlStr, params, err := orm.DeleteSql(true)
 			if err != nil {
 			return 0, errors.WithStack(err)
 			}
@@ -816,13 +816,13 @@ func getDaoTemplate() string {
 			if tx != nil {
 			ds.Tx = tx
 			}
-			count, err := north.PrepareDelete(sqlStr, params,ds)
+			count, err := norm.PrepareDelete(sqlStr, params,ds)
 			if err != nil {
 			return 0, errors.WithStack(err)
 			}
 			return count, nil
 		}
-		func GetDataSource() (north.DataSource, error) {
+		func GetDataSource() (norm.DataSource, error) {
 			return database.DataSource()
 		}`
 }
@@ -836,12 +836,12 @@ func getServiceTemplate() string {
 				"{{.ModelPackagePath}}"
 				"{{.ParamPackagePath}}"
 			
-				"github.com/go-lazyer/go-north"
+				norm "github.com/go-lazyer/north/orm"
 			)
 
 			{{ if gt (len .PrimaryKeyFields) 0 -}} 
-			func QueryByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
-				{{.TableNameLowerCamel}}, err := dao.QueryByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }}   {{end}})
+			func QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
+				{{.TableNameLowerCamel}}, err := dao.QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }}   {{end}})
 				if err != nil {
 					return model.{{.TableNameUpperCamel}}Model{},err
 				}
@@ -850,9 +850,9 @@ func getServiceTemplate() string {
 			{{end}}
 
 			func QueryByParam({{.TableNameLowerCamel}}Param param.{{.TableNameUpperCamel}}Param) ([]model.{{.TableNameUpperCamel}}Model, error) {
-				query := north.NewBoolQuery()
-				gen := north.CreateNorth().PageNum({{.TableNameLowerCamel}}Param.PageNum).PageStart({{.TableNameLowerCamel}}Param.PageStart).PageSize({{.TableNameLowerCamel}}Param.PageSize).Table(model.TABLE_NAME).Where(query)
-				{{.TableNameLowerCamel}}s, err := dao.QueryByGen(gen)
+				query := norm.NewBoolQuery()
+				orm := norm.CreateOrm().PageNum({{.TableNameLowerCamel}}Param.PageNum).PageStart({{.TableNameLowerCamel}}Param.PageStart).PageSize({{.TableNameLowerCamel}}Param.PageSize).Table(model.TABLE_NAME).Where(query)
+				{{.TableNameLowerCamel}}s, err := dao.QueryByOrm(orm)
 				if err != nil {
 					return nil,err
 				}

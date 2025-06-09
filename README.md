@@ -21,7 +21,7 @@ sql-generator 可以生成普通sql和预处理sql，配合golang官方提供的
 #### 1、引入
 
 ```go
-import generator "github.com/go-lazyer/north/norm"
+import  "github.com/go-lazyer/north/norm"
 ```
 
 
@@ -245,7 +245,7 @@ code-gengrator 模块主要用于生成数据库表对应的struct，以及dao�
 package main
 
 import (
-	generator "github.com/go-lazyer/north/code"
+	ngen "github.com/go-lazyer/north/gen"
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -282,7 +282,7 @@ func main() {
 			ControllerFileName:    "user_controller.go",                   //Controller层文件名
 		},
 	}
-	generator.NewGenerator().Dsn(dsn).Project("lazyer").Gen(tables)
+	ngen.NewGenerator().Dsn(dsn).Project("lazyer").Gen(tables)
 }
 ```
 
