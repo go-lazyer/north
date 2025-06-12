@@ -1,4 +1,4 @@
-package ngen
+package norm
 
 import (
 	"fmt"

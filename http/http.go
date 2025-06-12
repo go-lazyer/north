@@ -175,6 +175,9 @@ func (r *Request) PostData(u string, fileName string, fileHeader *multipart.File
 	if err := writer.Close(); err != nil {
 		return nil, 0, err
 	}
+	if r.header == nil {
+		r.header = make(map[string]string)
+	}
 	r.header["Content-Type"] = writer.FormDataContentType()
 
 	return r.Do("POST", u, strings.NewReader(body.String()))
