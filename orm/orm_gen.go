@@ -36,7 +36,7 @@ func (gen *Generator) Project(project string) *Generator {
 	return gen
 }
 
-type Module struct {
+type GenModule struct {
 	TableName           string //表名
 	TableNameUpperCamel string //表名的大驼峰
 	TableNameLowerCamel string //表名的小驼峰
@@ -228,7 +228,7 @@ func getFields(tableName, driverName string, db *sql.DB) ([]Field, []Field, erro
 	return fields, primaryKeyFields, nil
 }
 
-func (gen *Generator) Gen(modules []Module) error {
+func (gen *Generator) Gen(modules []GenModule) error {
 	if gen.project == "" {
 		return errors.New("project can not nil")
 	}
@@ -328,7 +328,7 @@ func (gen *Generator) Gen(modules []Module) error {
 	return nil
 }
 
-func genFile(table *Module, packageName string) {
+func genFile(table *GenModule, packageName string) {
 
 	var templateStr, filePath, file string
 	if packageName == "model" {

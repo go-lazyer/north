@@ -8,7 +8,7 @@ import (
 
 func TestGenModel(t *testing.T) {
 	dsn := "root:xxxx@tcp(test.daoway.cn:3306)/daowei?charset=utf8mb4&parseTime=true&loc=Local"
-	var tables = []Module{
+	var tables = []GenModule{
 		// { //最小配置
 		// 	TableName:  "user",
 		// 	ModulePath: "/Users/Hch/Workspace/test/api/user",
