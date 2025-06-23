@@ -2,7 +2,6 @@ package nstring
 
 import (
 	"bytes"
-	"strconv"
 	"strings"
 )
 
@@ -40,12 +39,6 @@ func ToLowerCamelCase(str string) string {
 		}
 	}
 	return sb.String()
-}
-
-// 是否数字
-func IsNumeric(str string) bool {
-	_, err := strconv.ParseFloat(str, 64)
-	return err == nil
 }
 
 // 首字母大写

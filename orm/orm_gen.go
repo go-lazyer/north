@@ -191,7 +191,6 @@ func getFields(tableName, driverName string, db *sql.DB) ([]Field, []Field, erro
 		`
 		sqlStr += fmt.Sprintf(" and t.table_name = '%s' order by is_primary_key desc", tableName)
 	}
-
 	rows, err := db.Query(sqlStr)
 	if err != nil {
 		panic(err)

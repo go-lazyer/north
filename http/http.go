@@ -22,13 +22,13 @@ const (
 	CONTENT_TYPE_DATA   = "multipart/form-data"
 )
 
-func (r *Request) Do(method, u string, reader io.Reader) ([]byte, int, error) {
+func (r *Request) Do(method, u string, reader io.Reader) (Response, error) {
 
 	if u == "" {
-		return nil, 0, errors.New("url is  null")
+		return Response{}, errors.New("url is  null")
 	}
 	if method == "" {
-		return nil, 0, errors.New("method is  null")
+		return Response{}, errors.New("method is  null")
 	}
 
 	req, _ := http.NewRequest(method, u, reader)
@@ -50,23 +50,33 @@ func (r *Request) Do(method, u string, reader io.Reader) ([]byte, int, error) {
 			req.Header.Add(k, v)
 		}
 	}
+	if len(r.cookie) != 0 {
+		for k, v := range r.cookie {
+			req.AddCookie(&http.Cookie{Name: k, Value: v})
+		}
+	}
 
 	if r.basicAuth.Username != "" && r.basicAuth.Password != "" {
 		req.SetBasicAuth(r.basicAuth.Username, r.basicAuth.Password)
 	}
-
 	res, err := client.Do(req)
 	if res != nil {
 		defer res.Body.Close()
 	}
 	if err != nil {
-		return nil, 0, err
+		return Response{}, err
 	}
 	resBody, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, 0, err
+		return Response{}, err
 	}
-	return resBody, res.StatusCode, nil
+	resp := Response{
+		Body:   resBody,
+		Status: res.StatusCode,
+		Header: res.Header,
+		Cookie: res.Cookies(),
+	}
+	return resp, nil
 }
 
 type BasicAuth struct {
@@ -76,8 +86,16 @@ type BasicAuth struct {
 
 type Request struct {
 	header    map[string]string
+	cookie    map[string]string
 	timeout   int
 	basicAuth BasicAuth
+}
+
+type Response struct {
+	Body   []byte
+	Status int
+	Header http.Header
+	Cookie []*http.Cookie
 }
 
 func NewRequest() *Request {
@@ -85,6 +103,10 @@ func NewRequest() *Request {
 }
 func (r *Request) Header(header map[string]string) *Request {
 	r.header = header
+	return r
+}
+func (r *Request) Cookie(cookie map[string]string) *Request {
+	r.cookie = cookie
 	return r
 }
 
@@ -97,10 +119,10 @@ func (r *Request) Timeout(timeout int) *Request {
 	r.timeout = timeout
 	return r
 }
-func (r *Request) Get(u string) ([]byte, int, error) {
+func (r *Request) Get(u string) (Response, error) {
 	return r.Do("GET", u, nil)
 }
-func (r *Request) PostJson(u string, json string) ([]byte, int, error) {
+func (r *Request) PostJson(u string, json string) (Response, error) {
 	if r.header == nil {
 		r.header = make(map[string]string)
 	}
@@ -108,7 +130,7 @@ func (r *Request) PostJson(u string, json string) ([]byte, int, error) {
 
 	return r.Do("POST", u, strings.NewReader(json))
 }
-func (r *Request) PostForm(u string, data url.Values) ([]byte, int, error) {
+func (r *Request) PostForm(u string, data url.Values) (Response, error) {
 	if r.header == nil {
 		r.header = make(map[string]string)
 	}
@@ -121,7 +143,7 @@ func (r *Request) PostForm(u string, data url.Values) ([]byte, int, error) {
 }
 
 // 二进制
-func (r *Request) PostStream(u string, bin []byte) ([]byte, int, error) {
+func (r *Request) PostStream(u string, bin []byte) (Response, error) {
 	if r.header == nil {
 		r.header = make(map[string]string)
 	}
@@ -132,7 +154,7 @@ func (r *Request) PostStream(u string, bin []byte) ([]byte, int, error) {
 }
 
 // 二进制
-func (r *Request) PutStream(u string, bin []byte) ([]byte, int, error) {
+func (r *Request) PutStream(u string, bin []byte) (Response, error) {
 	if r.header == nil {
 		r.header = make(map[string]string)
 	}
@@ -142,38 +164,38 @@ func (r *Request) PutStream(u string, bin []byte) ([]byte, int, error) {
 	return r.Do("PUT", u, bytes.NewReader(bin))
 }
 
-func (r *Request) PostData(u string, fileName string, fileHeader *multipart.FileHeader, data map[string]string) ([]byte, int, error) {
+func (r *Request) PostData(u string, fileName string, fileHeader *multipart.FileHeader, data map[string]string) (Response, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
 	// 2. 添加文件字段
 	file, err := fileHeader.Open()
 	if err != nil {
-		return nil, 0, err
+		return Response{}, err
 	}
 	defer file.Close()
 
 	// 创建表单文件字段（字段名可自定义，如 "file"）
 	part, err := writer.CreateFormFile(fileName, fileHeader.Filename)
 	if err != nil {
-		return nil, 0, err
+		return Response{}, err
 	}
 
 	// 将文件内容写入表单字段
 	if _, err := io.Copy(part, file); err != nil {
-		return nil, 0, err
+		return Response{}, err
 	}
 
 	// 3. 添加其他字段
 	for key, value := range data {
 		if err := writer.WriteField(key, value); err != nil {
-			return nil, 0, err
+			return Response{}, err
 		}
 	}
 
 	// 4. 关闭写入器，完成表单的构建
 	if err := writer.Close(); err != nil {
-		return nil, 0, err
+		return Response{}, err
 	}
 	if r.header == nil {
 		r.header = make(map[string]string)
@@ -183,7 +205,7 @@ func (r *Request) PostData(u string, fileName string, fileHeader *multipart.File
 	return r.Do("POST", u, strings.NewReader(body.String()))
 }
 
-func (r *Request) Delete(u string) ([]byte, int, error) {
+func (r *Request) Delete(u string) (Response, error) {
 	return r.Do("DELETE", u, nil)
 }
 func (r *Request) Download(url string, file string) error {
@@ -199,13 +221,13 @@ func (r *Request) Download(url string, file string) error {
 	defer out.Close()
 
 	// resp, err := GetConfigurable(url, nil)
-	resp, _, err := r.Get(url)
+	resp, err := r.Get(url)
 	if err != nil {
 		return err
 	}
 
 	// 然后将响应流和文件流对接起来
-	_, err = io.Copy(out, bytes.NewReader(resp))
+	_, err = io.Copy(out, bytes.NewReader(resp.Body))
 	if err != nil {
 		return err
 	}
