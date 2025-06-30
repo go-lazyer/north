@@ -3,6 +3,7 @@ package nhttp
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -50,12 +51,6 @@ func (r *Request) Do(method, u string, reader io.Reader) (Response, error) {
 			req.Header.Add(k, v)
 		}
 	}
-	if len(r.cookie) != 0 {
-		for k, v := range r.cookie {
-			req.AddCookie(&http.Cookie{Name: k, Value: v})
-		}
-	}
-
 	if r.basicAuth.Username != "" && r.basicAuth.Password != "" {
 		req.SetBasicAuth(r.basicAuth.Username, r.basicAuth.Password)
 	}
@@ -79,6 +74,58 @@ func (r *Request) Do(method, u string, reader io.Reader) (Response, error) {
 	return resp, nil
 }
 
+func (req *Request) ToCurl(method, u string, reader io.Reader) string {
+	var curlCmd strings.Builder
+
+	// 1. 添加基础命令和方法
+	curlCmd.WriteString("curl -X ")
+	curlCmd.WriteString(method)
+
+	// 2. 处理 URL（包含查询参数）
+	curlCmd.WriteString(" '")
+	curlCmd.WriteString(u)
+	curlCmd.WriteString("' \\\n")
+
+	// 3. 处理请求头
+	for key, value := range req.header {
+		// 转义单引号防止命令中断（' -> '\'）
+		escapedValue := strings.ReplaceAll(value, "'", `'\''`)
+		fmt.Fprintf(&curlCmd, "-H '%s: %s' \\\n", key, escapedValue)
+	}
+
+	// 4. 处理请求体
+	if reader != nil {
+		// 复制原始 Body（避免读取后丢失）
+		bodyBytes, err := io.ReadAll(reader)
+		if err != nil {
+			return fmt.Sprintf("读取请求体失败: %w", err)
+		}
+		// defer func() {
+		// 	// 重置 Body 以便后续使用
+		// 	reader = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		// }()
+
+		// 特殊处理：空请求体
+		if len(bodyBytes) == 0 {
+			curlCmd.WriteString("-d ''")
+			return curlCmd.String()
+		}
+
+		// 转义单引号和换行符
+		escapedBody := strings.ReplaceAll(string(bodyBytes), "'", `'\''`)
+		escapedBody = strings.ReplaceAll(escapedBody, "\n", `\n`)
+
+		// 根据内容类型决定格式化方式
+		contentType := req.header["Content-Type"]
+		if strings.Contains(contentType, CONTENT_TYPE_FORM) {
+			fmt.Fprintf(&curlCmd, "-d '%s'", escapedBody)
+		} else {
+			fmt.Fprintf(&curlCmd, "-d '%s'", escapedBody)
+		}
+	}
+	return curlCmd.String()
+}
+
 type BasicAuth struct {
 	Username string
 	Password string
@@ -86,7 +133,6 @@ type BasicAuth struct {
 
 type Request struct {
 	header    map[string]string
-	cookie    map[string]string
 	timeout   int
 	basicAuth BasicAuth
 }
@@ -103,10 +149,6 @@ func NewRequest() *Request {
 }
 func (r *Request) Header(header map[string]string) *Request {
 	r.header = header
-	return r
-}
-func (r *Request) Cookie(cookie map[string]string) *Request {
-	r.cookie = cookie
 	return r
 }
 

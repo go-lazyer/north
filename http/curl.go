@@ -9,7 +9,7 @@ import (
 )
 
 // ToCurl 将 *http.Request 对象转换为 cURL 命令字符串
-func (r *Request) ToCurl(req *http.Request) string {
+func RequestToCurl(req *http.Request) string {
 	var curlCmd strings.Builder
 
 	// 1. 添加基础命令和方法
