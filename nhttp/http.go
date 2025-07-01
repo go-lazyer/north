@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	nfile "github.com/go-lazyer/north/file"
+	"github.com/go-lazyer/north/nfile"
 )
 
 const (

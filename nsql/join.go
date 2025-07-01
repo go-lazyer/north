@@ -1,4 +1,4 @@
-package norm
+package nsql
 
 import "fmt"
 

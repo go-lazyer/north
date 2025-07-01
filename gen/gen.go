@@ -1,4 +1,4 @@
-package norm
+package gen
 
 import (
 	"database/sql"
@@ -10,8 +10,8 @@ import (
 	"text/template"
 	"time"
 
-	nfile "github.com/go-lazyer/north/file"
-	nstring "github.com/go-lazyer/north/string"
+	"github.com/go-lazyer/north/nfile"
+	"github.com/go-lazyer/north/nstring"
 )
 
 type Generator struct {
@@ -536,7 +536,7 @@ func getDaoTemplate() string {
 			 {{ else -}}
 			 query := norm.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(norm.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
 			 {{end}}
-			 orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(query)
+			 orm := norm.NewOrm().Table(model.TABLE_NAME).Where(query)
 			 return QuerySingleByOrm(orm)
 		  }
 		  {{ end -}}
@@ -560,7 +560,7 @@ func getDaoTemplate() string {
 		  {{if eq (len .PrimaryKeyFields) 1}} 
 		  // query map by primaryKeys
 		  func QueryMapByPrimaryKeys(primaryKeys []any) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
-			 orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
+			 orm := norm.NewOrm().Table(model.TABLE_NAME).Where(norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
 			 sqlStr, params, err := orm.SelectSql(true)
 			 if err != nil {
 				return nil,errors.WithStack(err)
@@ -657,13 +657,13 @@ func getDaoTemplate() string {
 		}
 
 		func InsertTx(m model.{{.TableNameUpperCamel}}Model, tx *sql.Tx) (int64, error) {
-			orm := norm.CreateOrm().Table(model.TABLE_NAME).Insert(m.ToMap(false))
+			orm := norm.NewOrm().Table(model.TABLE_NAME).Insert(m.ToMap(false))
 			return InsertByOrmTx(orm,tx)
 		}
 		
 		//batch insert
 		func InsertByMapsTx(insertMaps []map[string]any, tx *sql.Tx) (int64, error) {
-			orm := norm.CreateOrm().Table(model.TABLE_NAME).Inserts(insertMaps)
+			orm := norm.NewOrm().Table(model.TABLE_NAME).Inserts(insertMaps)
 			return InsertByOrmTx(orm,tx)
 		}
 	
@@ -717,7 +717,7 @@ func getDaoTemplate() string {
 			{{ else -}}
 			query := norm.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(norm.NewEqualQuery(model.{{ .ColumnNameUpper }}, m.{{.FieldName}}.{{.FieldNullTypeValue}})) {{end}}
 			{{end -}}
-			orm := norm.CreateOrm().Table(model.TABLE_NAME).Update(m.ToMap(false)).Where(query)
+			orm := norm.NewOrm().Table(model.TABLE_NAME).Update(m.ToMap(false)).Where(query)
 			return UpdateByOrmTx(orm,tx)
 		}
 		{{end}}
@@ -739,7 +739,7 @@ func getDaoTemplate() string {
 			return 0, errors.New("batch update primary not allowed to be nil")
 			}
 			query := norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, ids)
-			orm := norm.CreateOrm().Primary(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}).Table(model.TABLE_NAME).Where(query).Updates(updateMaps)
+			orm := norm.NewOrm().Primary(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}).Table(model.TABLE_NAME).Where(query).Updates(updateMaps)
 			return UpdateByOrmTx(orm,tx)
 		}
 		{{end}}
@@ -786,17 +786,17 @@ func getDaoTemplate() string {
 		{{ if gt (len .PrimaryKeyFields) 0 -}}
 		func DeleteByPrimaryKeyTx({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}, tx *sql.Tx) (int64, error) {
 			{{ if eq (len .PrimaryKeyFields) 1 -}} 
-			orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(norm.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}}))
+			orm := norm.NewOrm().Table(model.TABLE_NAME).Where(norm.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}}))
 			{{ else -}}
 			query := norm.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(norm.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
-			orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(query)
+			orm := norm.NewOrm().Table(model.TABLE_NAME).Where(query)
 			{{ end -}}
 			return DeleteByOrmTx(orm,tx)
 		}
 		{{ end -}}
 		{{ if eq (len .PrimaryKeyFields) 1 -}}
 		func DeleteByPrimaryKeysTx(primaryKeys []any, tx *sql.Tx) (int64, error) {
-			orm := norm.CreateOrm().Table(model.TABLE_NAME).Where(norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
+			orm := norm.NewOrm().Table(model.TABLE_NAME).Where(norm.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
 			return DeleteByOrmTx(orm,tx)
 		}
 		{{ end -}}
@@ -850,7 +850,7 @@ func getServiceTemplate() string {
 
 			func QueryByParam({{.TableNameLowerCamel}}Param param.{{.TableNameUpperCamel}}Param) ([]model.{{.TableNameUpperCamel}}Model, error) {
 				query := norm.NewBoolQuery()
-				orm := norm.CreateOrm().PageNum({{.TableNameLowerCamel}}Param.PageNum).PageStart({{.TableNameLowerCamel}}Param.PageStart).PageSize({{.TableNameLowerCamel}}Param.PageSize).Table(model.TABLE_NAME).Where(query)
+				orm := norm.NewOrm().PageNum({{.TableNameLowerCamel}}Param.PageNum).PageStart({{.TableNameLowerCamel}}Param.PageStart).PageSize({{.TableNameLowerCamel}}Param.PageSize).Table(model.TABLE_NAME).Where(query)
 				{{.TableNameLowerCamel}}s, err := dao.QueryByOrm(orm)
 				if err != nil {
 					return nil,err

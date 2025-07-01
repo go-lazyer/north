@@ -21,7 +21,7 @@ sql-generator 可以生成普通sql和预处理sql，配合golang官方提供的
 #### 1、引入
 
 ```go
-import  "github.com/go-lazyer/north/norm"
+import  "github.com/go-lazyer/north"
 ```
 
 

@@ -1,10 +1,12 @@
-package norm
+package nsql
 
 import (
 	"bytes"
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/go-lazyer/north"
 )
 
 const (
@@ -31,7 +33,7 @@ type Orm struct {
 	columns    []string
 }
 
-func CreateOrm() *Orm {
+func NewOrm() *Orm {
 	return new(Orm)
 }
 
@@ -279,7 +281,7 @@ func (s *Orm) SelectSql(prepare bool) (string, []any, error) {
 		}
 		params = append(params, s.pageSize, s.pageStart)
 		if prepare {
-			sql.WriteString(fmt.Sprintf(" limit %s offset %s", PLACE_HOLDER_GO, PLACE_HOLDER_GO))
+			sql.WriteString(fmt.Sprintf(" limit %s offset %s", north.PLACE_HOLDER_GO, north.PLACE_HOLDER_GO))
 		} else {
 			sql.WriteString(fmt.Sprintf(" limit %d offset %d", s.pageSize, s.pageStart))
 		}
@@ -351,7 +353,7 @@ func (s *Orm) InsertSql(prepare bool) (string, []any, error) {
 				}
 				params = append(params, maps[field])
 				if prepare {
-					sql.WriteString(fmt.Sprintf(" %s ", PLACE_HOLDER_GO))
+					sql.WriteString(fmt.Sprintf(" %s ", north.PLACE_HOLDER_GO))
 				} else {
 					sql.WriteString(fmt.Sprintf(" '%v' ", maps[field]))
 				}
@@ -381,7 +383,7 @@ func (s *Orm) InsertSql(prepare bool) (string, []any, error) {
 			}
 			params = append(params, s.insert[field])
 			if prepare {
-				sql.WriteString(fmt.Sprintf(" %s ", PLACE_HOLDER_GO))
+				sql.WriteString(fmt.Sprintf(" %s ", north.PLACE_HOLDER_GO))
 			} else {
 				sql.WriteString(fmt.Sprintf(" '%v' ", s.insert[field]))
 			}
@@ -433,7 +435,7 @@ func (s *Orm) UpdateSql(prepare bool) (string, []any, error) {
 				}
 				params = append(params, setMap[s.primary], v)
 				if prepare {
-					sql.WriteString(fmt.Sprintf(" WHEN %s THEN %s", PLACE_HOLDER_GO, PLACE_HOLDER_GO))
+					sql.WriteString(fmt.Sprintf(" WHEN %s THEN %s", north.PLACE_HOLDER_GO, north.PLACE_HOLDER_GO))
 				} else {
 					sql.WriteString(fmt.Sprintf(" WHEN '%v' THEN '%v'", setMap[s.primary], v))
 				}
@@ -447,7 +449,7 @@ func (s *Orm) UpdateSql(prepare bool) (string, []any, error) {
 				sql.WriteString(",")
 			}
 			if prepare {
-				sql.WriteString(fmt.Sprintf("%v=%s", name, PLACE_HOLDER_GO))
+				sql.WriteString(fmt.Sprintf("%v=%s", name, north.PLACE_HOLDER_GO))
 			} else {
 				sql.WriteString(fmt.Sprintf("%v='%v'", name, value))
 			}

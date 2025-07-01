@@ -1,4 +1,4 @@
-package norm
+package north
 
 import (
 	"database/sql"
