@@ -1,4 +1,4 @@
-package gen
+package ngen
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 func TestGenModel(t *testing.T) {
 	dsn := "root:xxxx@tcp(test.daoway.cn:3306)/daowei?charset=utf8mb4&parseTime=true&loc=Local"
-	var tables = []GenModule{
+	var tables = []Module{
 		// { //最小配置
 		// 	TableName:  "user",
 		// 	ModulePath: "/Users/Hch/Workspace/test/api/user",
@@ -40,5 +40,5 @@ func TestGenModel(t *testing.T) {
 		},
 	}
 
-	fmt.Println(NewGenerator().Dsn(dsn).Project("go-generator").Gen(tables))
+	fmt.Println(NewGen().Dsn(dsn).Project("go-generator").Gen(tables))
 }

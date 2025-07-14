@@ -7,12 +7,8 @@ import (
 	"maps"
 	"reflect"
 	"strings"
-)
 
-const (
-	DRIVER_NAME_POSTGRES = "postgres"
-	DRIVER_NAME_MYSQL    = "mysql"
-	PLACE_HOLDER_GO      = "ⒼⓄ" //
+	"github.com/go-lazyer/north/constant"
 )
 
 type DataSource struct {
@@ -44,60 +40,75 @@ func Open(driverName string, dsn string, config Config) (DataSource, error) {
 	}, nil
 }
 
-func Count(sql string, params []any, ds DataSource) (int64, error) {
+func Count(sqlStr string, params []any, ds DataSource) (int64, error) {
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "count") {
+		return 0, errors.New("must be a count sql")
+	}
+
 	if ds.Db == nil {
 		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
-	sql = prepareConvert(sql, ds.DriverName)
-	rows, err := ds.Db.Query(sql, params...)
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+	row := ds.Db.QueryRow(sqlStr, params...)
+	var count int64
+	err := row.Scan(&count)
 	if err != nil {
 		return 0, err
-	}
-	defer rows.Close()
-
-	var count int64
-	for rows.Next() {
-		err := rows.Scan(&count)
-		if err != nil {
-			return 0, err
-		}
 	}
 	return count, nil
 }
 
-func PrepareCount(sql string, params []any, ds DataSource) (int64, error) {
-	if ds.Db == nil {
-		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
-	}
-	sql = prepareConvert(sql, ds.DriverName)
+func PrepareCount(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
 
-	stmt, err := ds.Db.Prepare(sql)
-	if err != nil {
-		return 0, err
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "count") {
+		return nil, errors.New("must be a count sql")
 	}
-	defer stmt.Close()
-	rows, err := stmt.Query(params...)
-	if err != nil {
-		return 0, err
-	}
-	defer rows.Close()
 
-	var count int64
-	for rows.Next() {
-		err := rows.Scan(&count)
-		if err != nil {
-			return 0, err
-		}
-	}
-	return count, nil
-}
-
-// 普通查询
-func Query[T any](sql string, params []any, ds DataSource) ([]T, error) {
 	if ds.Db == nil {
 		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
-	rows, err := ds.Db.Query(sql, params...)
+	paramLen := 0
+	for n, param := range params {
+		//检查每一个参数的长度是否一致
+		if n != 0 && len(param) != paramLen {
+			return nil, errors.New("param length must be equal")
+		}
+		paramLen = len(param)
+	}
+
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+
+	stmt, err := ds.Db.Prepare(sqlStr)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	counts := make([]int64, 0)
+	for _, param := range params {
+		row := stmt.QueryRow(param...)
+		var count int64
+		err = row.Scan(&count)
+		if err != nil {
+			count = 0
+		}
+		counts = append(counts, count)
+	}
+	return counts, err
+}
+
+// 普通查询
+func Query[T any](sqlStr string, params []any, ds DataSource) ([]T, error) {
+
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "select") {
+		return nil, errors.New("must be a select sql")
+	}
+
+	if ds.Db == nil {
+		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+	rows, err := ds.Db.Query(sqlStr, params...)
 	if err != nil {
 		return nil, err
 	}
@@ -106,44 +117,69 @@ func Query[T any](sql string, params []any, ds DataSource) ([]T, error) {
 }
 
 // 预处理查询func RowsToStruct[T any](rows *sql.Rows) ([]T, error) {
-func PrepareQuery[T any](sql string, params []any, ds DataSource) ([]T, error) {
+func PrepareQuery[T any](sqlStr string, params [][]any, ds DataSource) ([][]T, error) {
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "select") {
+		return nil, errors.New("must be a select sql")
+	}
+
 	if ds.Db == nil {
 		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
-	sql = prepareConvert(sql, ds.DriverName)
-	stmt, err := ds.Db.Prepare(sql)
+	paramLen := 0
+	for n, param := range params {
+		//检查每一个参数的长度是否一致
+		if n != 0 && len(param) != paramLen {
+			return nil, errors.New("param length must be equal")
+		}
+		paramLen = len(param)
+	}
+
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+	stmt, err := ds.Db.Prepare(sqlStr)
 	if err != nil {
 		return nil, err
 	}
 	defer stmt.Close()
-	rows, err := stmt.Query(params...)
-	if err != nil {
-		return nil, err
+
+	results := make([][]T, 0)
+	var errs error
+	for _, param := range params {
+		var result []T
+		rows, err := stmt.Query(param...)
+		if err != nil {
+			errs = err
+			results = append(results, result)
+			continue
+		}
+		defer rows.Close()
+		result, err = RowsToStruct[T](rows)
+		if err != nil {
+			errs = err
+		}
+		results = append(results, result)
 	}
-	defer rows.Close()
-	return RowsToStruct[T](rows)
+	return results, errs
 }
 
-// 预处理插入 返回批量自增ID
-func PrepareInsert(sqlStr string, params []any, ds DataSource) (int64, error) {
+// 插入 返回插入第一条自增ID
+func Insert(sqlStr string, params []any, ds DataSource) (int64, error) {
+
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "insert") {
+		return 0, errors.New("must be a insert sql")
+	}
+
 	if ds.Db == nil && ds.Tx == nil {
 		return 0, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
 	}
 	sqlStr = prepareConvert(sqlStr, ds.DriverName)
 
-	var stmt *sql.Stmt
+	var ret sql.Result
 	var err error
 	if ds.Tx != nil {
-		stmt, err = ds.Tx.Prepare(sqlStr)
+		ret, err = ds.Tx.Exec(sqlStr, params...) // 如果有事务，则在事务中执行
+	} else if ds.Db != nil {
+		ret, err = ds.Db.Exec(sqlStr, params...) // 直接执行插入语句
 	}
-	if ds.Db != nil {
-		stmt, err = ds.Db.Prepare(sqlStr)
-	}
-	if err != nil {
-		return 0, err
-	}
-	defer stmt.Close()
-	ret, err := stmt.Exec(params...)
 	if err != nil {
 		return 0, err
 	}
@@ -154,41 +190,170 @@ func PrepareInsert(sqlStr string, params []any, ds DataSource) (int64, error) {
 	return id, nil
 }
 
-func PrepareUpdate(sqlStr string, params []any, ds DataSource) (int64, error) {
-	if ds.Db == nil && ds.Tx == nil {
-		return 0, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
+// 预处理插入 返回最后自增ID
+func PrepareInsert(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "insert") {
+		return nil, errors.New("must be a insert sql")
 	}
+
+	if ds.Db == nil && ds.Tx == nil {
+		return nil, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
+	}
+	paramLen := 0
+	for n, param := range params {
+		//检查每一个参数的长度是否一致
+		if n != 0 && len(param) != paramLen {
+			return nil, errors.New("param length must be equal")
+		}
+		paramLen = len(param)
+	}
+
 	sqlStr = prepareConvert(sqlStr, ds.DriverName)
 
 	var stmt *sql.Stmt
 	var err error
 	if ds.Tx != nil {
 		stmt, err = ds.Tx.Prepare(sqlStr)
-	}
-	if ds.Db != nil {
+	} else if ds.Db != nil {
 		stmt, err = ds.Db.Prepare(sqlStr)
 	}
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer stmt.Close()
-	ret, err := stmt.Exec(params...)
 
-	if ds.Db != nil {
-		ret, err = ds.Db.Exec(sqlStr, params...)
+	var ret sql.Result
+
+	ids := make([]int64, 0)
+
+	for _, param := range params {
+		ret, err = stmt.Exec(param...)
+		if err != nil {
+			ids = append(ids, 0) // 如果执行失败，返回0
+			continue
+		}
+		id, err := ret.LastInsertId() // 新插入数据的id
+		if err != nil {
+			ids = append(ids, 0)
+		}
+		ids = append(ids, id)
 	}
-	if err != nil {
-		return 0, err
-	}
-	n, err := ret.RowsAffected() // 操作影响的行数
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return ids, err
 }
-func PrepareDelete(sqlStr string, params []any, ds DataSource) (int64, error) {
+
+func Update(sqlStr string, params []any, ds DataSource) (int64, error) {
+
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "update") {
+		return 0, errors.New("must be a update sql")
+	}
+
 	if ds.Db == nil && ds.Tx == nil {
 		return 0, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
+	}
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+
+	var ret sql.Result
+	var err error
+	if ds.Tx != nil {
+		ret, err = ds.Tx.Exec(sqlStr, params...) // 如果有事务，则在事务中执行
+	} else if ds.Db != nil {
+		ret, err = ds.Db.Exec(sqlStr, params...) // 直接执行插入语句
+	}
+	if err != nil {
+		return 0, err
+	}
+	num, err := ret.RowsAffected() // 操作影响的行数
+	if err != nil {
+		return 0, err
+	}
+	return num, nil
+}
+
+func PrepareUpdate(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
+
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "update") {
+		return nil, errors.New("must be a update sql")
+	}
+
+	if ds.Db == nil && ds.Tx == nil {
+		return nil, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
+	}
+
+	paramLen := 0
+	for n, param := range params {
+		//检查每一个参数的长度是否一致
+		if n != 0 && len(param) != paramLen {
+			return nil, errors.New("param length must be equal")
+		}
+		paramLen = len(param)
+	}
+
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+
+	var stmt *sql.Stmt
+	var err error
+	if ds.Tx != nil {
+		stmt, err = ds.Tx.Prepare(sqlStr)
+	} else if ds.Db != nil {
+		stmt, err = ds.Db.Prepare(sqlStr)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var ret sql.Result
+
+	ids := make([]int64, 0)
+
+	for _, param := range params {
+		ret, err = stmt.Exec(param...)
+		if err != nil {
+			ids = append(ids, 0) // 如果执行失败，返回0
+			continue
+		}
+		id, err := ret.RowsAffected() // 操作影响的行数
+		if err != nil {
+			ids = append(ids, 0)
+		}
+		ids = append(ids, id)
+	}
+	return ids, err
+}
+
+func Delete(sqlStr string, params []any, ds DataSource) (int64, error) {
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "delete") {
+		return 0, errors.New("must be a delete sql")
+	}
+
+	if ds.Db == nil && ds.Tx == nil {
+		return 0, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
+	}
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+
+	var ret sql.Result
+	var err error
+	if ds.Tx != nil {
+		ret, err = ds.Tx.Exec(sqlStr, params...) // 如果有事务，则在事务中执行
+	} else if ds.Db != nil {
+		ret, err = ds.Db.Exec(sqlStr, params...) // 直接执行删除语句
+	}
+	if err != nil {
+		return 0, err
+	}
+	num, err := ret.RowsAffected() // 操作影响的行数
+	if err != nil {
+		return 0, err
+	}
+	return num, nil
+}
+
+func PrepareDelete(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "delete") {
+		return nil, errors.New("must be a delete sql")
+	}
+	if ds.Db == nil && ds.Tx == nil {
+		return nil, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
 	}
 	sqlStr = prepareConvert(sqlStr, ds.DriverName)
 
@@ -196,24 +361,31 @@ func PrepareDelete(sqlStr string, params []any, ds DataSource) (int64, error) {
 	var err error
 	if ds.Tx != nil {
 		stmt, err = ds.Tx.Prepare(sqlStr)
-	}
-	if ds.Db != nil {
+	} else if ds.Db != nil {
 		stmt, err = ds.Db.Prepare(sqlStr)
 	}
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer stmt.Close()
-	ret, err := stmt.Exec(params...)
 
-	if err != nil {
-		return 0, err
+	var ret sql.Result
+
+	ids := make([]int64, 0)
+
+	for _, param := range params {
+		ret, err = stmt.Exec(param...)
+		if err != nil {
+			ids = append(ids, 0) // 如果执行失败，返回0
+			continue
+		}
+		id, err := ret.RowsAffected() // 操作影响的行数
+		if err != nil {
+			ids = append(ids, 0)
+		}
+		ids = append(ids, id)
 	}
-	n, err := ret.RowsAffected() // 操作影响的行数
-	if err != nil {
-		return 0, err
-	}
-	return n, nil
+	return ids, err
 }
 
 // 把查询结果映射为实体
@@ -306,12 +478,12 @@ func forEachField(structType reflect.Type) map[string]string {
 }
 
 func prepareConvert(sqlStr, driverName string) string {
-	if driverName == DRIVER_NAME_MYSQL {
-		return strings.ReplaceAll(sqlStr, PLACE_HOLDER_GO, "?")
+	if driverName == constant.DRIVER_NAME_MYSQL {
+		return strings.ReplaceAll(sqlStr, constant.PLACE_HOLDER_GO, "?")
 	}
 	n := 1
-	for strings.Index(sqlStr, PLACE_HOLDER_GO) > 0 {
-		sqlStr = strings.Replace(sqlStr, PLACE_HOLDER_GO, fmt.Sprintf("$%v", n), 1)
+	for strings.Index(sqlStr, constant.PLACE_HOLDER_GO) > 0 {
+		sqlStr = strings.Replace(sqlStr, constant.PLACE_HOLDER_GO, fmt.Sprintf("$%v", n), 1)
 		n = n + 1
 	}
 	return sqlStr

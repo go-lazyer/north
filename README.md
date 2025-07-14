@@ -2,26 +2,88 @@
 
 # north
 
-### 一、安装教程
+### 一、介绍
+
+#### 1、安装
 
 ```
 go get github.com/go-lazyer/north
 ```
-### 二、使用说明
-north sql生成和struct生成的工具，减少开发者自行拼接sql，和table to struct的工作量，可以专注于核心业务代码，该工具是模仿 mybatis-generator 实现的，同时又借鉴了go elastic工具的包github.com/olivere/elastic 的查询实现方式，所以熟悉 mybatis-generator和olivere 及容易上手。
+#### 2、介绍
 
-north 分为两个模块，sql-generator（生成sql）和code-gengrator(生成代码)，两个模块都可以单独使用，也可以配合使用
+north 由3部分组成。north为主模块，用与真实与数据库交互。nsql`github.com/go-lazyer/north/nsql`和ngen `github.com/go-lazyer/north/ngen` 为辅助模块，其中nsql用于sql 生成，ngen用于生成表对应的struct，以及一些相关dao层代码，减少开发者自行拼接sql，和table to struct的工作量，可以专注于核心业务代码。该工具是模仿 mybatis-generator 实现的，同时又借鉴了go elastic工具的包github.com/olivere/elastic 的查询实现方式，所以熟悉 mybatis-generator和olivere 及容易上手。该工具支持mysql/pgsql。
 
-注意：该工具只支持mysql
+#### 3、简单查询
 
-### 三、sql-generator
+```go
+func (){
+    type User struct {
+      Id           sql.NullString `orm:"id" `                   //
+      Nickname     sql.NullString `orm:"nickname" default:""`   // 昵称
+      Username     sql.NullString `orm:"username" `             // 用户名
+    }	
 
-sql-generator 可以生成普通sql和预处理sql，配合golang官方提供的sql.DB,可以轻松实现增删改查.
+    dsn := "user:password@tcp(127.0.0.1:3306)/dbname"
+    db, err := north.Open("mysql", args, north.Config{})
+    if err != nil {
+        return nil, errors.WithStack(err)
+    }
+
+  	//select * from user where id='123456'
+    orm := nsql.NewSelectOrm().Table("user").Where(nsql.NewEqualQuery(id, "123456"))
+
+    sqlStr, params, err := orm.ToSql(true)
+
+    users, err := north.PrepareQuery[User](sqlStr, params, db)
+    if err != nil {
+        return nil, errors.WithStack(err)
+    }
+}
+```
+
+
+
+### 二、north
+
+north提供了以下方法，用于增删改查
+
+```go
+//普通count
+func Count(sqlStr string, params []any, ds DataSource) (int64, error)
+//预处理count
+func PrepareCount(sqlStr string, params [][]any, ds DataSource) ([]int64, error)
+
+//普通查询
+func Query[T any](sqlStr string, params []any, ds DataSource) ([]T, error)
+//预处理查询
+func PrepareQuery[T any](sqlStr string, params [][]any, ds DataSource) ([][]T, error)
+
+//插入
+func Insert(sqlStr string, params []any, ds DataSource) (int64, error)
+//预处理插入
+func PrepareInsert(sqlStr string, params [][]any, ds DataSource) ([]int64, error)
+
+//修改
+func Update(sqlStr string, params []any, ds DataSource) (int64, error)
+//预处理修改
+func PrepareUpdate(sqlStr string, params [][]any, ds DataSource) ([]int64, error) 
+
+//删除
+func Delete(sqlStr string, params []any, ds DataSource) (int64, error)
+//预处理删除
+func PrepareDelete(sqlStr string, params [][]any, ds DataSource) ([]int64, error)
+```
+
+
+
+### 三、nsql 生成sql
+
+nsql 可以生成普通sql和预处理sql，配合north模块可以轻松实现增删改查.
 
 #### 1、引入
 
 ```go
-import  "github.com/go-lazyer/north"
+import  "github.com/go-lazyer/north/nsql"
 ```
 
 
@@ -31,11 +93,11 @@ import  "github.com/go-lazyer/north"
 ``` go
 //select count(1) count from user where t.id>1000
 
-query := generator.NewGreaterThanQuery("id", 1000)
+query := nsql.NewGreaterThanQuery("id", 1000)
 
-gen := generator.NewGenerator().Table("user").Where(query)
+gen := nsql.NewCountOrm().Table("user").Where(query)
 
-fmt.Println(gen.CountSql(false))
+fmt.Println(gen.ToSql(false))
   
 ```
 #### 3、基础查询
@@ -43,17 +105,17 @@ fmt.Println(gen.CountSql(false))
 ```go
 //select * from user
 
-gen := NewGenerator().Table("user")
+orm := nsql.NewOrm().Table("user")
 
-fmt.Println(gen.SelectSql(false))
+fmt.Println(orm.ToSql(false))
 
 //select * from user where t.id=1000
 
-query := NewEqualQuery("id", 1000)
+query := nsql.NewEqualQuery("id", 1000)
 
-gen := NewGenerator().Table("user").Where(query)
+orm := nsql.NewSelectOrm().Table("user").Where(query)
 
-fmt.Println(gen.SelectSql(false))
+fmt.Println(orm.ToSql(false))
 ```
 
 #### 4、排序查询
@@ -61,15 +123,15 @@ fmt.Println(gen.SelectSql(false))
 ```go
 // select * from user where id=1000 and age>20 order by age desc,id asc
 
-idQuery := NewEqualQuery("id", 1000)
+idQuery := nsql.NewEqualQuery("id", 1000)
 
-ageQuery := NewGreaterThanQuery("age", 20)
+ageQuery := nsql.NewGreaterThanQuery("age", 20)
 
-boolQuery := NewBoolQuery().And(idQuery, ageQuery)
+boolQuery := nsql.NewBoolQuery().And(idQuery, ageQuery)
 
-gen := NewGenerator().Table("user").Where(boolQuery).AddOrderBy("age", "desc").AddOrderBy("id", "asc")
+orm := nsql.NewSelectOrm().Table("user").Where(boolQuery).AddOrderBy("age", "desc").AddOrderBy("id", "asc")
 
-fmt.Println(gen.SelectSql(false))
+fmt.Println(orm.ToSql(false))
 ```
 
 #### 5、复杂查询
@@ -77,17 +139,17 @@ fmt.Println(gen.SelectSql(false))
 ```go
 // select id,name,age from user where (id=1000 and age>20) or age <=10 order by age desc
 
-idQuery := NewEqualQuery("id", 1000)
+idQuery := nsql.NewEqualQuery("id", 1000)
 
-ageQuery := NewGreaterThanQuery("age", 20)
+ageQuery := nsql.NewGreaterThanQuery("age", 20)
 
-boolQuery := NewBoolQuery().And(idQuery, ageQuery)
+boolQuery := nsql.NewBoolQuery().And(idQuery, ageQuery)
 
-ageQuery2 := NewLessThanOrEqualQuery("age", 10)
+ageQuery2 := nsql.NewLessThanOrEqualQuery("age", 10)
 
-gen := NewGenerator().Result("id", "name", "age").Table("user").Where(boolQuery, ageQuery2).AddOrderBy("age", "desc")
+orm := nsql.NewSelectOrm().Result("id", "name", "age").Table("user").Where(boolQuery, ageQuery2).AddOrderBy("age", "desc")
 
-fmt.Println(gen.SelectSql(false))
+fmt.Println(orm.ToSql(false))
 ```
 
 #### 6、联表查询
@@ -95,13 +157,13 @@ fmt.Println(gen.SelectSql(false))
  ```go
  // select user.id,order.id  from user join order on user.id=order.user_id where user.id='10000'
  
- idQuery = NewEqualQuery("id", 1000)
+ idQuery = nsql.NewEqualQuery("id", 1000)
  
- join := NewJoin("order", INNER_JOIN).Condition("user", "id", "order", "user_id")
+ join := nsql.NewJoin("order", INNER_JOIN).Condition("user", "id", "order", "user_id")
  
- gen = NewGenerator().Result("user.id", "order.id").Table("user").Join(join).Where(idQuery)
+ orm = nsql.NewSelectOrm().Result("user.id", "order.id").Table("user").Join(join).Where(idQuery)
  
- fmt.Println(gen.SelectSql(false))
+ fmt.Println(orm.ToSql(false))
  ```
 
 #### 7、更新
@@ -109,71 +171,50 @@ fmt.Println(gen.SelectSql(false))
 ```go
 // update user set age=21,name="lazeyr" where id="10000"	
 
-query := NewEqualQuery("id", 1000)
-
+query := nsql.NewEqualQuery("id", 1000)
 set := map[string]any{
   "age":  21,
   "name": "lazyer",
 }
 
-gen := NewGenerator().Table("user").Where(query).Update(set)
-
-fmt.Println(gen.UpdateSql(false))
+gen := nsql.NewUpdateOrm().Table("user").Where(query).Update(set)
+fmt.Println(gen.ToSql(false))
 ```
 
-#### 8、批量更新(只支持主键更新)
+#### 8、批量更新
 
 ```go
-// update `user`
-// set
-// 	name = case dwid
-// 		when 10001 then boy
-// 		when 10002 then boy
-// 		when 10003 then girl
-// 		end,
-// 	age = case dwid
-// 		when 10001 then 10
-// 		when 10002 then 20
-// 		when 10003 then 30
-// 	end,
-// 	name = case dwid
-// 		when 10001 then lilie
-// 		when 10002 then lining
-// 		when 10003 then hanmeimei
-// 	end
-// where
-// 	user.dwid in('10001', '10002', '10003')
+	// update
+	// `user`
+	// set
+	// 	sex = case
+	// 	when dwid=10001 then boy
+	// 	when name='lilie' then girl
+	//  else sex
+	// 	end,
+	// 	age = case dwid
+	// 	when dwid=10001 then 20
+	// 	when name='lilie' then 40
+	//  else age
+	// 	end
+	// where
+	// 	user.create_time ='2025-01-01 00:00:00'
+func TestUpdatesSql(t *testing.T) {
+	f1 := map[string]any{
+		"sex":        "boy",
+		"age":        "20",
+		"_condition": nsql.NewEqualQuery("dwid", "10001"),
+	}
+	f2 := map[string]any{
+		"sex": "girl",
+		// "age":        "40",
+		"_condition": nsql.NewEqualQuery("name", "lilie"),
+	}
 
-f1 := map[string]any{
-  "name": "lilie",
-  "sex":  "boy",
-  "age":  "10",
+	query := nsql.NewEqualQuery("create_time", "2025-01-01 00:00:00")
+	gen := nsql.NewUpdateOrm().Table("user").Where(query).Update(f1, f2)
+	fmt.Println(gen.ToSql(false))
 }
-f2 := map[string]any{
-  "name": "lining",
-  "sex":  "boy",
-  "age":  "20",
-}
-f3 := map[string]any{
-  "name": "hanmeimei",
-  "sex":  "girl",
-  "age":  "30",
-}
-set := map[any]map[string]any{
-  "10001": f1,
-  "10002": f2,
-  "10003": f3,
-}
-
-dwids := []any{
-  10001, 10002, 10003,
-}
-
-query := NewInQuery("dwid", dwids)
-
-gen := NewGenerator().Table("user").Where(query).Primary("dwid").Updates(set)
-
-fmt.Print(gen.UpdateSql(false))
 ```
 
 #### 9、单条插入
@@ -187,9 +228,9 @@ m := map[string]any{
   "age":  "10",
 }
 
-gen := generator.NewGenerator().Table(model.TABLE_NAME).Insert(m)
+gen := nsql.NewInsertOrm().Table(model.TABLE_NAME).Insert(m)
 
-fmt.Println(gen.UpdateSql(false))
+fmt.Println(gen.ToSql(false))
 ```
 
 #### 10、批量插入
@@ -215,19 +256,14 @@ f3 := map[string]any{
   "sex":  "girl",
   "age":  "30",
 }
+orm := nsql.NewInsertOrm().Table("user").Insert(f1,f2,f3)
 
-dwids := []map[string]any{
-  f1, f2, f3,
-}
-
-gen := NewGenerator().Table("user").Inserts(dwids)
-
-fmt.Print(gen.InsertsSql(false))
+fmt.Print(orm.ToSql(false))
 ```
 
-### 四、code-gengrator
+### 四、ngen生成代码
 
-code-gengrator 模块主要用于生成数据库表对应的struct，以及dao文件，同时会生成相关的附属类文件
+ngen 模块主要用于生成数据库表对应的struct，以及dao文件，同时会生成相关的附属类文件
 
 #### 文件介绍
 
@@ -245,20 +281,20 @@ code-gengrator 模块主要用于生成数据库表对应的struct，以及dao�
 package main
 
 import (
-	ngen "github.com/go-lazyer/north/gen"
+	ngen "github.com/go-lazyer/north/ngen"
 	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
 	dsn := "root:123@tcp(localhost:3306)/test?charset=utf8mb4&parseTime=true&loc=Local"
-	var tables = []Module{
+	var moduls = []ngen.Module{
 		{//最小配置
 		 	TableName:  "user",
-		 	ModulePath: "/Users/Hch/Workspace/lazyer/api/user",
+		 	ModulePath: "/Users/Lazyer/Workspace/lazyer/api/user",
 		},
     { //完整配置
 			TableName:             "user",                                 //表名
-			ModulePath:            "/Users/Hch/Workspace/lazyer/api/user", //相对路径，包含项目名
+			ModulePath:            "/Users/Lazyer/Workspace/test/api/user", //相对路径，包含项目名
 			Model:                 true,                                   //是否生成Model层代码
 			ModelPackageName:      "model",                                //Model层包名
 			ModelFileName:         "user_model.go",                        //Model层文件名
@@ -282,7 +318,7 @@ func main() {
 			ControllerFileName:    "user_controller.go",                   //Controller层文件名
 		},
 	}
-	ngen.NewGenerator().Dsn(dsn).Project("lazyer").Gen(tables)
+	ngen.NewGen().Dsn(dsn).Project("test").Gen(moduls)
 }
 ```
 

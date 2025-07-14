@@ -262,7 +262,6 @@ func (r *Request) Download(url string, file string) error {
 	}
 	defer out.Close()
 
-	// resp, err := GetConfigurable(url, nil)
 	resp, err := r.Get(url)
 	if err != nil {
 		return err

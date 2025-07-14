@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/go-lazyer/north"
+	"github.com/go-lazyer/north/constant"
 	ntype "github.com/go-lazyer/north/ntype"
 )
 
@@ -63,7 +63,7 @@ func NewBetweenQuery(field string, firstValue any, secondValue any) *BetweenQuer
 func (q *BetweenQuery) Source(table string, prepare bool) (string, []any, error) {
 	param := []any{q.firstValue, q.secondValue}
 	if prepare {
-		return fmt.Sprintf("%s.%s between %s and %s", table, q.field, north.PLACE_HOLDER_GO, north.PLACE_HOLDER_GO), param, nil
+		return fmt.Sprintf("%s.%s between %s and %s", table, q.field, constant.PLACE_HOLDER_GO, constant.PLACE_HOLDER_GO), param, nil
 	}
 	if ntype.IsNumeric(q.firstValue) {
 		return fmt.Sprintf("%s.%s between %v and %v", table, q.field, q.firstValue, q.secondValue), param, nil
@@ -85,7 +85,7 @@ func NewNotBetweenQuery(field string, firstValue any, secondValue any) *NotBetwe
 func (q *NotBetweenQuery) Source(table string, prepare bool) (string, []any, error) {
 	param := []any{q.firstValue, q.secondValue}
 	if prepare {
-		return fmt.Sprintf("%s.%s not between %s and %s", table, q.field, north.PLACE_HOLDER_GO, north.PLACE_HOLDER_GO), param, nil
+		return fmt.Sprintf("%s.%s not between %s and %s", table, q.field, constant.PLACE_HOLDER_GO, constant.PLACE_HOLDER_GO), param, nil
 	}
 	if ntype.IsNumeric(q.firstValue) {
 		return fmt.Sprintf("%s.%s not between %v and %v", table, q.field, q.firstValue, q.secondValue), param, nil
@@ -112,7 +112,7 @@ func (q *EqualQuery) Source(table string, prepare bool) (string, []any, error) {
 		table = q.table
 	}
 	if prepare {
-		return fmt.Sprintf("%s.%s = %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s = %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s = %v", table, q.field, q.value), []any{q.value}, nil
@@ -132,7 +132,7 @@ func NewNotEqualQuery(field string, value any) *NotEqualQuery {
 
 func (q *NotEqualQuery) Source(table string, prepare bool) (string, []any, error) {
 	if prepare {
-		return fmt.Sprintf("%s.%s != %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s != %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s != %v", table, q.field, q.value), []any{q.value}, nil
@@ -161,7 +161,7 @@ func (q *InQuery[T]) Source(table string, prepare bool) (string, []any, error) {
 			sql.WriteString(" ,")
 		}
 		if prepare {
-			sql.WriteString(fmt.Sprintf(" %s", north.PLACE_HOLDER_GO))
+			sql.WriteString(fmt.Sprintf(" %s", constant.PLACE_HOLDER_GO))
 		} else if ntype.IsNumeric(v) {
 			sql.WriteString(fmt.Sprintf(" %v ", v))
 		} else {
@@ -196,7 +196,7 @@ func (q *NotInQuery[T]) Source(table string, prepare bool) (string, []any, error
 			sql.WriteString(" ,")
 		}
 		if prepare {
-			sql.WriteString(fmt.Sprintf(" %s", north.PLACE_HOLDER_GO))
+			sql.WriteString(fmt.Sprintf(" %s", constant.PLACE_HOLDER_GO))
 		} else if ntype.IsNumeric(q.value) {
 			sql.WriteString(fmt.Sprintf(" %v ", v))
 		} else {
@@ -224,7 +224,7 @@ func NewLikeQuery(field string, value any) *LikeQuery {
 
 func (q *LikeQuery) Source(table string, prepare bool) (string, []any, error) {
 	if prepare {
-		return fmt.Sprintf("%s.%s like %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s like %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s like '%v'", table, q.field, q.value), []any{q.value}, nil
@@ -244,7 +244,7 @@ func NewNotLikeQuery(field string, value any) *NotLikeQuery {
 
 func (q *NotLikeQuery) Source(table string, prepare bool) (string, []any, error) {
 	if prepare {
-		return fmt.Sprintf("%s.%s not like %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s not like %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s not like %v", table, q.field, q.value), []any{q.value}, nil
@@ -264,7 +264,7 @@ func NewGreaterThanQuery(field string, value any) *GreaterThanQuery {
 
 func (q *GreaterThanQuery) Source(table string, prepare bool) (string, []any, error) {
 	if prepare {
-		return fmt.Sprintf("%s.%s > %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s > %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s > %v", table, q.field, q.value), []any{q.value}, nil
@@ -284,7 +284,7 @@ func NewGreaterThanOrEqualQuery(field string, value any) *GreaterThanOrEqualQuer
 
 func (q *GreaterThanOrEqualQuery) Source(table string, prepare bool) (string, []any, error) {
 	if prepare {
-		return fmt.Sprintf("%s.%s >= %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s >= %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s >= %v", table, q.field, q.value), []any{q.value}, nil
@@ -304,7 +304,7 @@ func NewLessThanQuery(field string, value any) *LessThanQuery {
 
 func (q *LessThanQuery) Source(table string, prepare bool) (string, []any, error) {
 	if prepare {
-		return fmt.Sprintf("%s.%s < %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s < %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s < %v", table, q.field, q.value), []any{q.value}, nil
@@ -324,7 +324,7 @@ func NewLessThanOrEqualQuery(field string, value any) *LessThanOrEqualQuery {
 
 func (q *LessThanOrEqualQuery) Source(table string, prepare bool) (string, []any, error) {
 	if prepare {
-		return fmt.Sprintf("%s.%s <= %s", table, q.field, north.PLACE_HOLDER_GO), []any{q.value}, nil
+		return fmt.Sprintf("%s.%s <= %s", table, q.field, constant.PLACE_HOLDER_GO), []any{q.value}, nil
 	}
 	if ntype.IsNumeric(q.value) {
 		return fmt.Sprintf("%s.%s <= %v", table, q.field, q.value), []any{q.value}, nil
@@ -465,12 +465,12 @@ func (q *BoolQuery) And(queries ...BaseQuery) *BoolQuery {
 
 func (q *BoolQuery) Source(table string, prepare bool) (string, []any, error) {
 	params := make([]any, 0)
-	if q.query == nil || len(q.query) <= 0 {
+	if len(q.query) <= 0 {
 		return "", params, nil
 	}
 	var sql bytes.Buffer
 	sql.WriteString("(")
-	if q.query != nil || len(q.query) > 0 {
+	if len(q.query) > 0 {
 		for k, query := range q.query {
 			if k != 0 {
 				sql.WriteString(" and")
