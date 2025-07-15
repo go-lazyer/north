@@ -10,6 +10,12 @@ type Join struct {
 	querys     []BaseQuery
 }
 
+const (
+	INNER_JOIN = "inner join" // inner  join
+	LEFT_JOIN  = "left join"  // left  join
+	RIGHT_JOIN = "right join" // right join
+)
+
 func (s *Join) Where(query ...BaseQuery) *Join {
 	if s.querys == nil {
 		s.querys = make([]BaseQuery, 0)

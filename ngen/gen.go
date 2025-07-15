@@ -505,16 +505,13 @@ func getDaoTemplate() string {
 			 "github.com/pkg/errors"
 		  )
 
-		  // count by orm
-		  func CountByOrm(orm  *nsql.Orm) (int64, error) {
+		  func CountByOrm(orm  *nsql.CountOrm) (int64, error) {
 			 sqlStr, params, err := orm.ToSql(true)
 			 if err != nil {
 				return 0,errors.WithStack(err)
 			 }
 			 return CountBySql(sqlStr, params)
-			 
 		  }
-		  // count by sql
 		  func CountBySql(sqlStr string, params []any) (int64, error) {
 			 ds, err := database.DataSource()
 			 if err != nil {
@@ -528,7 +525,6 @@ func getDaoTemplate() string {
 		  }
 
 		  {{ if gt (len .PrimaryKeyFields) 0 -}}
-		  // query first by primaryKey
 		  func QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
 			 {{ if eq (len .PrimaryKeyFields) 1 -}} 
 			 query := nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}})
@@ -539,15 +535,13 @@ func getDaoTemplate() string {
 			 return QuerySingleByOrm(orm)
 		  }
 		  {{ end -}}
-		  // query first by orm
-		  func QuerySingleByOrm(orm  *nsql.Orm) (model.{{.TableNameUpperCamel}}Model, error) {
+		  func QuerySingleByOrm(orm  *nsql.SelectOrm) (model.{{.TableNameUpperCamel}}Model, error) {
 			 sqlStr, params, err := orm.ToSql(true)
 			 if err != nil {
 				return model.{{.TableNameUpperCamel}}Model{},errors.WithStack(err)
 			 }
 			 return QuerySingleBySql(sqlStr, params)
 		  }
-		  // query first by sql
 		  func QuerySingleBySql(sqlStr string, params []any) (model.{{.TableNameUpperCamel}}Model, error) {
 			 models, err := QueryBySql(sqlStr, params)
  
@@ -557,7 +551,6 @@ func getDaoTemplate() string {
 			 return models[0], nil
 		  }
 		  {{if eq (len .PrimaryKeyFields) 1}} 
-		  // query map by primaryKeys
 		  func QueryMapByPrimaryKeys(primaryKeys []any) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
 			 orm := nsql.NewSelectOrm().Table(model.TABLE_NAME).Where(nsql.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
 			 sqlStr, params, err := orm.ToSql(true)
@@ -567,8 +560,7 @@ func getDaoTemplate() string {
 			 return QueryMapBySql(sqlStr, params)
 		  }
 		  
-		  // query map by orm
-		  func QueryMapByOrm(orm  *nsql.Orm) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
+		  func QueryMapByOrm(orm  *nsql.SelectOrm) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
 			 sqlStr, params, err := orm.ToSql(true)
 			 if err != nil {
 				return nil, errors.WithStack(err)
@@ -576,7 +568,6 @@ func getDaoTemplate() string {
 			 return QueryMapBySql(sqlStr, params)
 		  }
 		  
-		  // query map by sql
 		  func QueryMapBySql(sqlStr string, params []any) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
 			 {{.TableNameLowerCamel}}s,err := QueryBySql(sqlStr, params)
 			 if err != nil {
@@ -595,15 +586,13 @@ func getDaoTemplate() string {
 		  }
 		  {{end}}
  
-		  // query by orm
-		  func QueryByOrm(orm  *nsql.Orm) ([]model.{{.TableNameUpperCamel}}Model, error) {
+		  func QueryByOrm(orm  *nsql.SelectOrm) ([]model.{{.TableNameUpperCamel}}Model, error) {
 			 sqlStr, params, err := orm.ToSql(true)
 			 if err != nil {
 				return nil,errors.WithStack(err)
 			 }
 			 return QueryBySql(sqlStr, params)
 		  }
-		  // query by sql
 		  func QueryBySql(sqlStr string, params []any) ([]model.{{.TableNameUpperCamel}}Model, error) {
 			 ds, err := database.DataSource()
 			 if err != nil {
@@ -617,15 +606,13 @@ func getDaoTemplate() string {
 		  }
  
  
-		  // query extend by orm
-		  func QueryExtendByOrm(orm  *nsql.Orm) ([]model.{{.TableNameUpperCamel}}Extend, error) {
+		  func QueryExtendByOrm(orm  *nsql.SelectOrm) ([]model.{{.TableNameUpperCamel}}Extend, error) {
 			 sqlStr, params, err := orm.ToSql(true)
 			 if err != nil {
 				return nil,errors.WithStack(err)
 			 }
 			 return QueryExtendBySql(sqlStr, params)
 		  }
-		  // query extend by sql
 		  func QueryExtendBySql(sqlStr string, params []any) ([]model.{{.TableNameUpperCamel}}Extend, error) {
 			 ds, err := database.DataSource()
 			 if err != nil {
@@ -642,12 +629,11 @@ func getDaoTemplate() string {
 			return InsertTx(m,nil)
 		}
 		
-		//batch insert
-		func InsertByMap(insertMap... map[string]any) (int64, error) {
-			return InsertByMapTx(insertMap...,nil)
+		func InsertByMap(insertMap map[string]any) (int64, error) {
+			return InsertByMapTx(insertMap,nil)
 		}
 	
-		func InsertByOrm(orm  *nsql.Orm) (int64, error) {
+		func InsertByOrm(orm  *nsql.InsertOrm) (int64, error) {
 			return InsertByOrmTx(orm,nil)
 		}
 			
@@ -656,17 +642,15 @@ func getDaoTemplate() string {
 		}
 
 		func InsertTx(m model.{{.TableNameUpperCamel}}Model, tx *sql.Tx) (int64, error) {
-			orm := nsql.NewInsertOrm().Table(model.TABLE_NAME).Insert(m.ToMap(false))
-			return InsertByOrmTx(orm,tx)
+			return InsertByMapTx(m.ToMap(false), tx)
 		}
 		
-		//batch insert
-		func InsertByMapTx(insertMap... map[string]any, tx *sql.Tx) (int64, error) {
-			orm := nsql.NewInsertOrm().Table(model.TABLE_NAME).Insert(insertMap...)
+		func InsertByMapTx(insertMap map[string]any, tx *sql.Tx) (int64, error) {
+			orm := nsql.NewInsertOrm().Table(model.TABLE_NAME).Insert(insertMap)
 			return InsertByOrmTx(orm,tx)
 		}
 	
-		func InsertByOrmTx(orm  *nsql.Orm, tx *sql.Tx) (int64, error) {
+		func InsertByOrmTx(orm  *nsql.InsertOrm, tx *sql.Tx) (int64, error) {
 			sqlStr, params, err := orm.ToSql(true)
 			if err != nil {
 			return 0, errors.WithStack(err)
@@ -695,7 +679,7 @@ func getDaoTemplate() string {
 		}
 		{{end}}
 
-		func UpdateByOrm(orm  *nsql.Orm) (int64, error) {
+		func UpdateByOrm(orm  *nsql.UpdateOrm) (int64, error) {
 			return UpdateByOrmTx(orm,nil)
 		}
 		func UpdateBySql(sqlStr string, params []any) (int64, error) {
@@ -714,7 +698,7 @@ func getDaoTemplate() string {
 		}
 		{{end}}
 
-		func UpdateByOrmTx(orm  *nsql.Orm, tx *sql.Tx) (int64, error) {
+		func UpdateByOrmTx(orm  *nsql.UpdateOrm, tx *sql.Tx) (int64, error) {
 			sqlStr, params, err := orm.ToSql(true)
 			if err != nil {
 			   return 0, errors.WithStack(err)
@@ -746,7 +730,7 @@ func getDaoTemplate() string {
 			return DeleteByPrimaryKeysTx(primaryKeys,nil)
 		}
 		{{ end -}}
-		func DeleteByOrm(orm  *nsql.Orm) (int64, error) {
+		func DeleteByOrm(orm  *nsql.DeleteOrm) (int64, error) {
 			return DeleteByOrmTx(orm, nil)
 		}
 		func DeleteBySql(sqlStr string, params []any) (int64, error) {
@@ -770,7 +754,7 @@ func getDaoTemplate() string {
 			return DeleteByOrmTx(orm,tx)
 		}
 		{{ end -}}
-		func DeleteByOrmTx(orm  *nsql.Orm, tx *sql.Tx) (int64, error) {
+		func DeleteByOrmTx(orm  *nsql.DeleteOrm, tx *sql.Tx) (int64, error) {
 			sqlStr, params, err := orm.ToSql(true)
 			if err != nil {
 			return 0, errors.WithStack(err)
