@@ -7,7 +7,7 @@
 #### 1、安装
 
 ```
-go get github.com/go-lazyer/north
+go get github.com/go-lazyer/north@latest
 ```
 #### 2、介绍
 

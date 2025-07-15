@@ -8,13 +8,13 @@ import (
 	"github.com/go-lazyer/north/constant"
 	"github.com/go-lazyer/north/nmap"
 	"github.com/go-lazyer/north/nsql"
-	_ "github.com/go-sql-driver/mysql"
+	// _ "github.com/go-sql-driver/mysql"
 )
 
 func GetDataSource() (DataSource, error) {
 	username := "root"
-	password := "Daoway_Mysql_iO12"
-	host := "test.daoway.cn"
+	password := "******"
+	host := "localhost"
 	port := "3306"
 	dbname := "north"
 	connStr := fmt.Sprintf("%s:%s@(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", username, password, host, port, dbname)
