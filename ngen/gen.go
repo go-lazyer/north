@@ -298,9 +298,10 @@ func (gen *Generator) Gen(modules []Module) error {
 		module.ControllerFileName = tableName + "_" + module.ControllerPackageName + ".go"
 		module.ControllerFilePath = module.ModulePath + "/" + module.ControllerPackageName
 
-		if module.Model {
-			genFile(&module, module.ModelPackageName)
-		}
+		genFile(&module, module.ModelPackageName)
+		genFile(&module, "field")
+		genFile(&module, module.DaoPackageName)
+
 		if module.Extend {
 			genFile(&module, module.ExtendPackageName)
 		}
@@ -310,9 +311,7 @@ func (gen *Generator) Gen(modules []Module) error {
 		if module.Param {
 			genFile(&module, module.ParamPackageName)
 		}
-		if module.Dao {
-			genFile(&module, module.DaoPackageName)
-		}
+
 		if module.Service {
 			genFile(&module, module.ServicePackageName)
 		}
@@ -332,6 +331,10 @@ func genFile(table *Module, packageName string) {
 		templateStr = getModelTemplate()
 		filePath = table.ModelFilePath
 		file = filePath + "/" + table.ModelFileName
+	case "field":
+		templateStr = getFieldTemplate()
+		filePath = table.ModelFilePath
+		file = filePath + "/" + table.TableName + "_field.go"
 	case "extend":
 		templateStr = getExtendTemplate()
 		filePath = table.ExtendFilePath
@@ -408,13 +411,6 @@ func getModelTemplate() string {
 		"database/sql"
 	)
 	
-	const (
-		{{range $field := .Fields}}
-			{{- .ColumnNameUpper -}}  ="{{ .ColumnName }}" // {{ .Comment }}
-		{{end}}
-		TABLE_NAME  = "{{ .TableName }}" // 表名
-	)
-	
 	type {{.TableNameUpperCamel}}Model struct {
 		{{range $field := .Fields}}{{ .FieldName }}  {{ .FieldNullType }} ` + "`{{ .FieldOrmTag }} {{ .FieldDefaultTag }}`" + ` // {{ .Comment }}
 		{{end}}
@@ -432,12 +428,26 @@ func getModelTemplate() string {
 		return view
 	}`
 }
+func getFieldTemplate() string {
+	return `package model
+	const (
+		{{range $field := .Fields}}
+			{{- .ColumnNameUpper -}}  ="{{ .ColumnName }}" // {{ .Comment }}
+		{{end}}
+		TABLE_NAME  = "{{ .TableName }}" // 表名
+	)
+	var fields = []string{
+		{{range $field := .Fields}} {{- .ColumnNameUpper -}},{{end}}
+	}
+	func GetFields() []string {
+		return append([]string(nil), fields...) // 返回副本
+	}`
+}
 func getExtendTemplate() string {
 	return `package model
-
-			type {{.TableNameUpperCamel}}Extend struct {
-				{{.TableNameUpperCamel}}Model
-			}`
+	type {{.TableNameUpperCamel}}Extend struct {
+		{{.TableNameUpperCamel}}Model
+	}`
 }
 
 func getViewTemplate() string {
@@ -480,352 +490,339 @@ func getViewTemplate() string {
 }
 func getParamTemplate() string {
 	return `// Create by code north  {{.CreateTime}}
-			package param
-			
-			import (
-				"time"
-			)
-			type {{.TableNameUpperCamel}}Param struct {
-				{{range $field := .Fields}}{{ .FieldName }}  {{ .FieldType }} ` + "`{{.FieldFormTag}} {{ .FieldJsonTag }}`" + ` // {{ .Comment }}
-				{{end}}
-				PageNum 	int ` + "`form:\"page\" json:\"page\"`" + `
-				PageStart 	int ` + "`form:\"start\" json:\"start\"`" + `
-				PageSize 	int ` + "`form:\"size\" json:\"size\"`" + `
-			}`
+	package param
+	
+	import (
+		"time"
+	)
+	type {{.TableNameUpperCamel}}Param struct {
+		{{range $field := .Fields}}{{ .FieldName }}  {{ .FieldType }} ` + "`{{.FieldFormTag}} {{ .FieldJsonTag }}`" + ` // {{ .Comment }}
+		{{end}}
+		PageNum 	int ` + "`form:\"page\" json:\"page\"`" + `
+		PageStart 	int ` + "`form:\"start\" json:\"start\"`" + `
+		PageSize 	int ` + "`form:\"size\" json:\"size\"`" + `
+	}`
 }
 func getDaoTemplate() string {
 	return `// Create by go-ormerator  {{.CreateTime}}
-		  package dao
-		  
-		  import (
-		  	 "database/sql"
-			 "github.com/go-lazyer/north"
-			 "github.com/go-lazyer/north/nsql"
-			 "{{.ModelPackagePath}}"
-			 "github.com/pkg/errors"
-		  )
-
-		  func CountByOrm(orm  *nsql.CountOrm) (int64, error) {
-			 sqlStr, params, err := orm.ToSql(true)
-			 if err != nil {
-				return 0,errors.WithStack(err)
-			 }
-			 return CountBySql(sqlStr, params)
-		  }
-		  func CountBySql(sqlStr string, params []any) (int64, error) {
-			 ds, err := database.DataSource()
-			 if err != nil {
-				return 0, errors.WithStack(err)
-			 }
-			 count, err := north.Count(sqlStr, params, ds)
-			 if err != nil {
-				return 0,errors.WithStack(err)
-			 }
-			 return count,nil
-		  }
-
-		  {{ if gt (len .PrimaryKeyFields) 0 -}}
-		  func QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
-			 {{ if eq (len .PrimaryKeyFields) 1 -}} 
-			 query := nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}})
-			 {{ else -}}
-			 query := nsql.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(nsql.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
-			 {{end}}
-			 orm := nsql.NewSelectOrm().Table(model.TABLE_NAME).Where(query)
-			 return QuerySingleByOrm(orm)
-		  }
-		  {{ end -}}
-		  func QuerySingleByOrm(orm  *nsql.SelectOrm) (model.{{.TableNameUpperCamel}}Model, error) {
-			 sqlStr, params, err := orm.ToSql(true)
-			 if err != nil {
-				return model.{{.TableNameUpperCamel}}Model{},errors.WithStack(err)
-			 }
-			 return QuerySingleBySql(sqlStr, params)
-		  }
-		  func QuerySingleBySql(sqlStr string, params []any) (model.{{.TableNameUpperCamel}}Model, error) {
-			 models, err := QueryBySql(sqlStr, params)
- 
-			 if len(models) == 0 || err != nil {
-				return model.{{.TableNameUpperCamel}}Model{}, errors.WithStack(err)
-			 }
-			 return models[0], nil
-		  }
-		  {{if eq (len .PrimaryKeyFields) 1}} 
-		  func QueryMapByPrimaryKeys(primaryKeys []any) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
-			 orm := nsql.NewSelectOrm().Table(model.TABLE_NAME).Where(nsql.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
-			 sqlStr, params, err := orm.ToSql(true)
-			 if err != nil {
-				return nil,errors.WithStack(err)
-			 }
-			 return QueryMapBySql(sqlStr, params)
-		  }
-		  
-		  func QueryMapByOrm(orm  *nsql.SelectOrm) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
-			 sqlStr, params, err := orm.ToSql(true)
-			 if err != nil {
-				return nil, errors.WithStack(err)
-			 }
-			 return QueryMapBySql(sqlStr, params)
-		  }
-		  
-		  func QueryMapBySql(sqlStr string, params []any) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
-			 {{.TableNameLowerCamel}}s,err := QueryBySql(sqlStr, params)
-			 if err != nil {
-				return nil,errors.WithStack(err)
-			 }
- 
-			 if len({{.TableNameLowerCamel}}s) == 0 {
-				return nil,nil
-			 }
-			 {{.TableNameLowerCamel}}Map := make(map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, len({{.TableNameLowerCamel}}s))
-			 for _, {{.TableNameLowerCamel}} := range {{.TableNameLowerCamel}}s {
-				new := {{.TableNameLowerCamel}}
-				{{.TableNameLowerCamel}}Map[{{.TableNameLowerCamel}}.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}}] = new
-			 }
-			 return {{.TableNameLowerCamel}}Map,nil
-		  }
-		  {{end}}
- 
-		  func QueryByOrm(orm  *nsql.SelectOrm) ([]model.{{.TableNameUpperCamel}}Model, error) {
-			 sqlStr, params, err := orm.ToSql(true)
-			 if err != nil {
-				return nil,errors.WithStack(err)
-			 }
-			 return QueryBySql(sqlStr, params)
-		  }
-		  func QueryBySql(sqlStr string, params []any) ([]model.{{.TableNameUpperCamel}}Model, error) {
-			 ds, err := database.DataSource()
-			 if err != nil {
-				return nil, errors.WithStack(err)
-			 }
-			 {{.TableNameLowerCamel}}s, err := north.Query[model.{{.TableNameUpperCamel}}Model](sqlStr, params, ds)
-			 if err != nil {
-				return nil,errors.WithStack(err)
-			 }
-			 return {{.TableNameLowerCamel}}s,nil
-		  }
- 
- 
-		  func QueryExtendByOrm(orm  *nsql.SelectOrm) ([]model.{{.TableNameUpperCamel}}Extend, error) {
-			 sqlStr, params, err := orm.ToSql(true)
-			 if err != nil {
-				return nil,errors.WithStack(err)
-			 }
-			 return QueryExtendBySql(sqlStr, params)
-		  }
-		  func QueryExtendBySql(sqlStr string, params []any) ([]model.{{.TableNameUpperCamel}}Extend, error) {
-			 ds, err := database.DataSource()
-			 if err != nil {
-				return nil, errors.WithStack(err)
-			 }
-			 {{.TableNameLowerCamel}}Extends, err := north.Query[model.{{.TableNameUpperCamel}}Extend](sqlStr, params, ds)
-			 if err != nil {
-				return nil,errors.WithStack(err)
-			 }
-			 return {{.TableNameLowerCamel}}Extends,nil
-		  }
-
-		func Insert(m model.{{.TableNameUpperCamel}}Model) (int64, error) {
-			return InsertTx(m,nil)
-		}
-		
-		func InsertByMap(insertMap map[string]any) (int64, error) {
-			return InsertByMapTx(insertMap,nil)
-		}
+	package dao
 	
-		func InsertByOrm(orm  *nsql.InsertOrm) (int64, error) {
-			return InsertByOrmTx(orm,nil)
-		}
-			
-		func InsertBySql(sqlStr string, params []any) (int64, error) {
-			return InsertBySqlTx(sqlStr,params,nil)
-		}
+	import (
+		"database/sql"
+		"github.com/go-lazyer/north"
+		"github.com/go-lazyer/north/nsql"
+		"analysis/library/database"
+		"{{.ModelPackagePath}}"
+	)
 
-		func InsertTx(m model.{{.TableNameUpperCamel}}Model, tx *sql.Tx) (int64, error) {
-			return InsertByMapTx(m.ToMap(false), tx)
+	func Count(orm *nsql.CountOrm) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
 		}
-		
-		func InsertByMapTx(insertMap map[string]any, tx *sql.Tx) (int64, error) {
-			orm := nsql.NewInsertOrm().Table(model.TABLE_NAME).Insert(insertMap)
-			return InsertByOrmTx(orm,tx)
-		}
-	
-		func InsertByOrmTx(orm  *nsql.InsertOrm, tx *sql.Tx) (int64, error) {
-			sqlStr, params, err := orm.ToSql(true)
-			if err != nil {
-			return 0, errors.WithStack(err)
-			}
-			return InsertBySqlTx(sqlStr, params,tx)
-		}
-			
-		func InsertBySqlTx(sqlStr string, params []any, tx *sql.Tx) (int64, error) {
-			ds, err := database.DataSource()
-			if err != nil {
-			return 0, errors.WithStack(err)
-			}
-			if tx != nil {
-			ds.Tx = tx
-			}
-			id, err := north.Insert(sqlStr, params,ds)
-			if err != nil {
-			return 0, errors.WithStack(err)
-			}
-			return id, nil
-		}
+		return north.CountByOrm(orm,ds)
+	}
 
-		{{ if gt (len .PrimaryKeyFields) 0 -}}
-		func Update(m model.{{.TableNameUpperCamel}}Model) (int64, error) {
-			return UpdateTx(m,nil)
+	{{ if gt (len .PrimaryKeyFields) 0 -}}
+	func QuerySingleById({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return model.{{.TableNameUpperCamel}}Model{}, err
 		}
+		{{ if eq (len .PrimaryKeyFields) 1 -}} 
+		query := nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}})
+		{{ else -}}
+		query := nsql.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(nsql.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
 		{{end}}
-
-		func UpdateByOrm(orm  *nsql.UpdateOrm) (int64, error) {
-			return UpdateByOrmTx(orm,nil)
+		orm := nsql.NewSelectOrm().Table(model.TABLE_NAME).Where(query)
+		ms,err := north.QueryByOrm[model.{{.TableNameUpperCamel}}Model](orm, ds)
+		if err != nil {
+			return model.{{.TableNameUpperCamel}}Model{}, err
 		}
-		func UpdateBySql(sqlStr string, params []any) (int64, error) {
-			 return UpdateBySqlTx(sqlStr, params,nil)
+		return ms[0], nil
+	}
+	{{ end -}}
+
+	func QuerySingle(orm  *nsql.SelectOrm) (model.{{.TableNameUpperCamel}}Model, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return model.{{.TableNameUpperCamel}}Model{}, err
+		}
+		ms,err := north.QueryByOrm[model.{{.TableNameUpperCamel}}Model](orm, ds)
+		if err != nil {
+			return model.{{.TableNameUpperCamel}}Model{}, err
+		}
+		return ms[0], nil
+	}
+
+	func Query(orm  *nsql.SelectOrm) ([]model.{{.TableNameUpperCamel}}Model, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return nil, err
+		}
+		ms,err := north.QueryByOrm[model.{{.TableNameUpperCamel}}Model](orm, ds)
+		if err != nil {
+			return nil, err
+		}
+		return ms, nil
+	}
+
+
+	func QueryExtend(orm  *nsql.SelectOrm) ([]model.{{.TableNameUpperCamel}}Extend, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return nil, err
+		}
+		ms,err := north.QueryByOrm[model.{{.TableNameUpperCamel}}Extend](orm, ds)
+		if err != nil {
+			return nil, err
+		}
+		return ms, nil
+	}
+	
+	{{if eq (len .PrimaryKeyFields) 1}} 
+
+	func QueryByIds(id []{{(index .PrimaryKeyFields 0).FieldType}}) ([]model.{{.TableNameUpperCamel}}Model, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return nil, err
+		}
+		orm := nsql.NewSelectOrm().Table(model.TABLE_NAME).Where(nsql.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, id))
+		ms,err := north.QueryByOrm[model.{{.TableNameUpperCamel}}Model](orm, ds)
+		if err != nil {
+			return nil, err
+		}
+		return ms, nil
+	}
+
+
+	func QueryMapByIds(ids []{{(index .PrimaryKeyFields 0).FieldType}}) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
+		ms, err := QueryByIds(ids)
+		if err != nil {
+			return nil, err
+		}
+		if len(ms) == 0 {
+			return nil, nil
+		}
+		maps := make(map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, len(ms))
+		for _, m := range ms {
+			maps[m.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}}] = m
+		}
+		return maps, nil
+	}
+	
+	func QueryMap(orm  *nsql.SelectOrm) (map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, error) {
+		ms, err := Query(orm)
+		if err != nil {
+			return nil, err
+		}
+		if len(ms) == 0 {
+			return nil, nil
+		}
+		maps := make(map[{{(index .PrimaryKeyFields 0).FieldType}}]model.{{.TableNameUpperCamel}}Model, len(ms))
+		for _, m := range ms {
+			maps[m.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}}] = m
+		}
+		return maps, nil
+	}
+	{{end}}
+
+	func Insert(m model.{{.TableNameUpperCamel}}Model, tx... *sql.Tx) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		return north.InsertByMap(model.TABLE_NAME, m.ToMap(false),ds)
+	}
+
+	func Inserts(ms []model.{{.TableNameUpperCamel}}Model, tx ...*sql.Tx) ([]int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return []int64{}, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
 		}
 
-		{{ if gt (len .PrimaryKeyFields) 0 -}}
-		func UpdateTx(m model.{{.TableNameUpperCamel}}Model, tx *sql.Tx) (int64, error) {
+		maps := make([]map[string]any, 0)
+		for _, m := range ms {
+			maps = append(maps, m.ToMap(false))
+		}
+
+		return north.InsertsByMap(model.TABLE_NAME, maps,ds)
+	}
+
+	{{ if gt (len .PrimaryKeyFields) 0 -}}
+	func Update(m model.{{.TableNameUpperCamel}}Model, tx... *sql.Tx) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+
+		{{ if eq (len .PrimaryKeyFields) 1 -}} 
+		query := nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, m.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}})
+		{{ else -}}
+		query := nsql.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(nsql.NewEqualQuery(model.{{ .ColumnNameUpper }}, m.{{.FieldName}}.{{.FieldNullTypeValue}})) {{end}}
+		{{end -}}
+		orm := nsql.NewUpdateOrm().Table(model.TABLE_NAME).Update(m.ToMap(false)).Where(query)
+		return north.UpdateByOrm(orm,ds)
+	}
+	{{end}}
+	func UpdateByOrm(orm *nsql.UpdateOrm, tx ...*sql.Tx) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		return north.UpdateByOrm(orm,ds)
+	}
+	func Updates(ms []model.{{.TableNameUpperCamel}}Model, tx ...*sql.Tx) ([]int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return []int64{}, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		querys := make([]nsql.BaseQuery, 0)
+		maps := make([]map[string]any, 0)
+		for _, m := range ms {
 			{{ if eq (len .PrimaryKeyFields) 1 -}} 
-			query := nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, m.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}})
+			querys = append(querys, nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, m.{{(index .PrimaryKeyFields 0).FieldName}}.{{(index .PrimaryKeyFields 0).FieldNullTypeValue}}))
 			{{ else -}}
-			query := nsql.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(nsql.NewEqualQuery(model.{{ .ColumnNameUpper }}, m.{{.FieldName}}.{{.FieldNullTypeValue}})) {{end}}
+			querys = append(querys, nsql.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(nsql.NewEqualQuery(model.{{ .ColumnNameUpper }}, m.{{.FieldName}}.{{.FieldNullTypeValue}})) {{end}})
 			{{end -}}
-			orm := nsql.NewUpdateOrm().Table(model.TABLE_NAME).Update(m.ToMap(false)).Where(query)
-			return UpdateByOrmTx(orm,tx)
+			maps = append(maps, m.ToMap(false))
 		}
-		{{end}}
+		orm := nsql.NewUpdateOrm().Table(model.TABLE_NAME).Update(maps...).Where(querys...)
+		return north.UpdatesByOrm(orm,ds)
+	}
+	func Upsert(m model.{{.TableNameUpperCamel}}Model, tx ...*sql.Tx) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		return north.UpsertByMap(model.TABLE_NAME, m.ToMap(false),ds)
+	}
 
-		func UpdateByOrmTx(orm  *nsql.UpdateOrm, tx *sql.Tx) (int64, error) {
-			sqlStr, params, err := orm.ToSql(true)
-			if err != nil {
-			   return 0, errors.WithStack(err)
-			}
-			return UpdateBySqlTx(sqlStr, params,tx)
-		 }
-		func UpdateBySqlTx(sqlStr string, params []any, tx *sql.Tx) (int64, error) {
-			 ds, err := database.DataSource()
-			 if err != nil {
-				return 0, errors.WithStack(err)
-			 }
-			 if tx != nil {
-				ds.Tx = tx
-			 }
-			 count, err := north.Update(sqlStr, params,ds)
-			 if err != nil {
-				return 0, errors.WithStack(err)
-			 }
-			 return count, nil
+	func Upserts(ms []model.{{.TableNameUpperCamel}}Model, tx ...*sql.Tx) ([]int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return []int64{}, err
 		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		maps := make([]map[string]any, 0)
+		for _, model := range ms {
+			maps = append(maps, model.ToMap(false))
+		}
+		return north.UpsertsByMap(model.TABLE_NAME, maps,ds)
+	}
+	func Delete(orm  *nsql.DeleteOrm, tx... *sql.Tx) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		return north.DeleteByOrm(orm,ds)
+	}
+	{{ if gt (len .PrimaryKeyFields) 0 -}}
+	func DeleteById({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}, tx... *sql.Tx) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		{{ if eq (len .PrimaryKeyFields) 1 -}} 
+		orm := nsql.NewDeleteOrm().Table(model.TABLE_NAME).Where(nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}}))
+		{{ else -}}
+		query := nsql.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(nsql.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
+		orm := nsql.NewDeleteOrm().Table(model.TABLE_NAME).Where(query)
+		{{ end -}}
+		return north.DeleteByOrm(orm,ds)
+	}
+	{{ end -}}
+	{{ if eq (len .PrimaryKeyFields) 1 -}}
+	func DeleteByIds(ids []any, tx... *sql.Tx) (int64, error) {
+		ds, err := database.DataSource()
+		if err != nil {
+			return 0, err
+		}
+		if len(tx) > 0 {
+			ds.Tx = tx[0]
+		}
+		orm := nsql.NewDeleteOrm().Table(model.TABLE_NAME).Where(nsql.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, ids))
+		return north.DeleteByOrm(orm,ds)
+	}
+	{{ end -}}
 
-		{{ if gt (len .PrimaryKeyFields) 0 -}}
-		func DeleteByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (int64, error) {
-			return DeleteByPrimaryKeyTx({{range $i,$field := .PrimaryKeyFields}} {{ .ColumnNameLowerCamel }},{{end}} nil)
-		}
-		{{ end -}}
-		{{ if eq (len .PrimaryKeyFields) 1 -}}
-		func DeleteByPrimaryKeys(primaryKeys []any) (int64, error) {
-			return DeleteByPrimaryKeysTx(primaryKeys,nil)
-		}
-		{{ end -}}
-		func DeleteByOrm(orm  *nsql.DeleteOrm) (int64, error) {
-			return DeleteByOrmTx(orm, nil)
-		}
-		func DeleteBySql(sqlStr string, params []any) (int64, error) {
-			return DeleteBySqlTx( sqlStr, params,nil)
-		}
-		
-		{{ if gt (len .PrimaryKeyFields) 0 -}}
-		func DeleteByPrimaryKeyTx({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}, tx *sql.Tx) (int64, error) {
-			{{ if eq (len .PrimaryKeyFields) 1 -}} 
-			orm := nsql.NewDeleteOrm().Table(model.TABLE_NAME).Where(nsql.NewEqualQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, {{(index .PrimaryKeyFields 0).ColumnNameLowerCamel}}))
-			{{ else -}}
-			query := nsql.NewBoolQuery(){{range $field := .PrimaryKeyFields}} .And(nsql.NewEqualQuery(model.{{ .ColumnNameUpper }}, {{ .ColumnNameLowerCamel }})) {{end}}
-			orm := nsql.NewDeleteOrm().Table(model.TABLE_NAME).Where(query)
-			{{ end -}}
-			return DeleteByOrmTx(orm,tx)
-		}
-		{{ end -}}
-		{{ if eq (len .PrimaryKeyFields) 1 -}}
-		func DeleteByPrimaryKeysTx(primaryKeys []any, tx *sql.Tx) (int64, error) {
-			orm := nsql.NewDeleteOrm().Table(model.TABLE_NAME).Where(nsql.NewInQuery(model.{{(index .PrimaryKeyFields 0).ColumnNameUpper}}, primaryKeys))
-			return DeleteByOrmTx(orm,tx)
-		}
-		{{ end -}}
-		func DeleteByOrmTx(orm  *nsql.DeleteOrm, tx *sql.Tx) (int64, error) {
-			sqlStr, params, err := orm.ToSql(true)
-			if err != nil {
-			return 0, errors.WithStack(err)
-			}
-			return DeleteBySqlTx(sqlStr, params,tx)
-		}
-		func DeleteBySqlTx(sqlStr string, params []any, tx *sql.Tx) (int64, error) {
-			ds, err := database.DataSource()
-			if err != nil {
-			return 0, errors.WithStack(err)
-			}
-			if tx != nil {
-			ds.Tx = tx
-			}
-			count, err := north.Delete(sqlStr, params,ds)
-			if err != nil {
-			return 0, errors.WithStack(err)
-			}
-			return count, nil
-		}
-		func GetDataSource() (north.DataSource, error) {
-			return database.DataSource()
-		}`
+	func GetDataSource() (north.DataSource, error) {
+		return database.DataSource()
+	}`
 }
 func getServiceTemplate() string {
 	return `// Create by code north  {{.CreateTime}}
-			package service
+	package service
 
-			import (
-			
-				"{{.DaoPackagePath}}"
-				"{{.ModelPackagePath}}"
-				"{{.ParamPackagePath}}"
-			
-				norm "github.com/go-lazyer/north/orm"
-			)
+	import (
+	
+		"{{.DaoPackagePath}}"
+		"{{.ModelPackagePath}}"
+		"{{.ParamPackagePath}}"
+	
+		norm "github.com/go-lazyer/north/orm"
+	)
 
-			{{ if gt (len .PrimaryKeyFields) 0 -}} 
-			func QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
-				{{.TableNameLowerCamel}}, err := dao.QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }}   {{end}})
-				if err != nil {
-					return model.{{.TableNameUpperCamel}}Model{},err
-				}
-				return {{.TableNameLowerCamel}},nil
-			}
-			{{end}}
+	{{ if gt (len .PrimaryKeyFields) 0 -}} 
+	func QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }} any  {{end}}) (model.{{.TableNameUpperCamel}}Model, error) {
+		{{.TableNameLowerCamel}}, err := dao.QuerySingleByPrimaryKey({{range $i,$field := .PrimaryKeyFields}} {{if ne $i 0}},{{end}}{{ .ColumnNameLowerCamel }}   {{end}})
+		if err != nil {
+			return model.{{.TableNameUpperCamel}}Model{},err
+		}
+		return {{.TableNameLowerCamel}},nil
+	}
+	{{end}}
 
-			func QueryByParam({{.TableNameLowerCamel}}Param param.{{.TableNameUpperCamel}}Param) ([]model.{{.TableNameUpperCamel}}Model, error) {
-				query := nsql.NewBoolQuery()
-				orm := nsql.NewSelectOrm().PageNum({{.TableNameLowerCamel}}Param.PageNum).PageStart({{.TableNameLowerCamel}}Param.PageStart).PageSize({{.TableNameLowerCamel}}Param.PageSize).Table(model.TABLE_NAME).Where(query)
-				{{.TableNameLowerCamel}}s, err := dao.QueryByOrm(orm)
-				if err != nil {
-					return nil,err
-				}
-				return {{.TableNameLowerCamel}}s,nil
-			}`
+	func QueryByParam({{.TableNameLowerCamel}}Param param.{{.TableNameUpperCamel}}Param) ([]model.{{.TableNameUpperCamel}}Model, error) {
+		query := nsql.NewBoolQuery()
+		orm := nsql.NewSelectOrm().PageNum({{.TableNameLowerCamel}}Param.PageNum).PageStart({{.TableNameLowerCamel}}Param.PageStart).PageSize({{.TableNameLowerCamel}}Param.PageSize).Table(model.TABLE_NAME).Where(query)
+		{{.TableNameLowerCamel}}s, err := dao.Query(orm)
+		if err != nil {
+			return nil,err
+		}
+		return {{.TableNameLowerCamel}}s,nil
+	}`
 }
 func getController() string {
 	return `// Create by code north  {{.CreateTime}}
-			package controller
-			
-			import (
-				"net/http"
-			
-				"github.com/gin-gonic/gin"
-			)
-			
-			func Index(g *gin.Context) {
-				data := gin.H{
-					"code": 200,
-				}
-				g.JSON(http.StatusOK, data)
-			}`
+	package controller
+	
+	import (
+		"net/http"
+	
+		"github.com/gin-gonic/gin"
+	)
+	
+	func Index(g *gin.Context) {
+		data := gin.H{
+			"code": 200,
+		}
+		g.JSON(http.StatusOK, data)
+	}`
 }

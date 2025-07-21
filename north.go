@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/go-lazyer/north/constant"
+	"github.com/go-lazyer/north/nmap"
+	"github.com/go-lazyer/north/nsql"
 )
 
 type DataSource struct {
@@ -40,11 +42,18 @@ func Open(driverName string, dsn string, config Config) (DataSource, error) {
 	}, nil
 }
 
-func Count(sqlStr string, params []any, ds DataSource) (int64, error) {
+func CountByOrm(orm *nsql.CountOrm, ds DataSource) (int64, error) {
+	sqlStr, params, err := orm.ToSql(true)
+	if err != nil {
+		return 0, err
+	}
+	return CountBySql(sqlStr, params, ds)
+}
+
+func CountBySql(sqlStr string, params []any, ds DataSource) (int64, error) {
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "count") {
 		return 0, errors.New("must be a count sql")
 	}
-
 	if ds.Db == nil {
 		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
@@ -58,12 +67,10 @@ func Count(sqlStr string, params []any, ds DataSource) (int64, error) {
 	return count, nil
 }
 
-func PrepareCount(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
-
+func PrepareCountBySql(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "count") {
 		return nil, errors.New("must be a count sql")
 	}
-
 	if ds.Db == nil {
 		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
@@ -75,7 +82,6 @@ func PrepareCount(sqlStr string, params [][]any, ds DataSource) ([]int64, error)
 		}
 		paramLen = len(param)
 	}
-
 	sqlStr = prepareConvert(sqlStr, ds.DriverName)
 
 	stmt, err := ds.Db.Prepare(sqlStr)
@@ -97,16 +103,25 @@ func PrepareCount(sqlStr string, params [][]any, ds DataSource) ([]int64, error)
 	return counts, err
 }
 
-// 普通查询
-func Query[T any](sqlStr string, params []any, ds DataSource) ([]T, error) {
-
-	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "select") {
-		return nil, errors.New("must be a select sql")
-	}
-
+// 查询
+func QueryByOrm[T any](orm *nsql.SelectOrm, ds DataSource) ([]T, error) {
 	if ds.Db == nil {
 		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
+	sqlStr, params, err := orm.ToSql(true)
+	if err != nil {
+		return nil, err
+	}
+	return QueryBySql[T](sqlStr, params, ds)
+}
+func QueryBySql[T any](sqlStr string, params []any, ds DataSource) ([]T, error) {
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "select") {
+		return nil, errors.New("must be a select sql")
+	}
+	if ds.Db == nil {
+		return nil, errors.New("db not allowed to be nil")
+	}
+
 	sqlStr = prepareConvert(sqlStr, ds.DriverName)
 	rows, err := ds.Db.Query(sqlStr, params...)
 	if err != nil {
@@ -116,53 +131,77 @@ func Query[T any](sqlStr string, params []any, ds DataSource) ([]T, error) {
 	return RowsToStruct[T](rows)
 }
 
-// 预处理查询func RowsToStruct[T any](rows *sql.Rows) ([]T, error) {
-func PrepareQuery[T any](sqlStr string, params [][]any, ds DataSource) ([][]T, error) {
-	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "select") {
-		return nil, errors.New("must be a select sql")
-	}
+// // 预处理查询func RowsToStruct[T any](rows *sql.Rows) ([]T, error) {
+// func  PrepareQuery(sqlStr string, dest interface{}, params [][]any) error {
+// 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "select") {
+// 		return errors.New("must be a select sql")
+// 	}
 
+// 	if ds.Db == nil {
+// 		return errors.New("db not allowed to be nil,need to instantiate yourself")
+// 	}
+// 	paramLen := 0
+// 	for n, param := range params {
+// 		//检查每一个参数的长度是否一致
+// 		if n != 0 && len(param) != paramLen {
+// 			return errors.New("param length must be equal")
+// 		}
+// 		paramLen = len(param)
+// 	}
+
+// 	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+// 	stmt, err := ds.Db.Prepare(sqlStr)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer stmt.Close()
+
+// 		results := make([][]T, 0)
+// 	var errs error
+// 	for _, param := range params {
+// 		var result []T
+// 		rows, err := stmt.Query(param...)
+// 		if err != nil {
+// 			errs = err
+// 			results = append(results, result)
+// 			continue
+// 		}
+// 		defer rows.Close()
+// 		result, err = RowsToStruct[T](rows)
+// 		if err != nil {
+// 			errs = err
+// 		}
+// 		results = append(results, result)
+// 	}
+// 	return results, errs
+// }
+
+func InsertByMap(tableName string, insertMap map[string]any, ds DataSource) (int64, error) {
+	if tableName == "" {
+		return 0, errors.New("tableName is empty")
+	}
+	if len(insertMap) == 0 {
+		return 0, errors.New("insertMap is empty")
+	}
 	if ds.Db == nil {
-		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
+		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
-	paramLen := 0
-	for n, param := range params {
-		//检查每一个参数的长度是否一致
-		if n != 0 && len(param) != paramLen {
-			return nil, errors.New("param length must be equal")
-		}
-		paramLen = len(param)
+	orm := nsql.NewInsertOrm().Table(tableName).Insert(insertMap)
+	return InsertByOrm(orm, ds)
+}
+func InsertByOrm(orm *nsql.InsertOrm, ds DataSource) (int64, error) {
+	if ds.Db == nil {
+		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
 	}
-
-	sqlStr = prepareConvert(sqlStr, ds.DriverName)
-	stmt, err := ds.Db.Prepare(sqlStr)
+	sqlStr, params, err := orm.ToSql(true)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	defer stmt.Close()
-
-	results := make([][]T, 0)
-	var errs error
-	for _, param := range params {
-		var result []T
-		rows, err := stmt.Query(param...)
-		if err != nil {
-			errs = err
-			results = append(results, result)
-			continue
-		}
-		defer rows.Close()
-		result, err = RowsToStruct[T](rows)
-		if err != nil {
-			errs = err
-		}
-		results = append(results, result)
-	}
-	return results, errs
+	return InsertBySql(sqlStr, params, ds)
 }
 
 // 插入 返回插入第一条自增ID
-func Insert(sqlStr string, params []any, ds DataSource) (int64, error) {
+func InsertBySql(sqlStr string, params []any, ds DataSource) (int64, error) {
 
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "insert") {
 		return 0, errors.New("must be a insert sql")
@@ -190,8 +229,32 @@ func Insert(sqlStr string, params []any, ds DataSource) (int64, error) {
 	return id, nil
 }
 
+func InsertsByMap(tableName string, insertMap []map[string]any, ds DataSource) ([]int64, error) {
+	if tableName == "" {
+		return []int64{}, errors.New("tableName is empty")
+	}
+	if len(insertMap) == 0 {
+		return []int64{}, errors.New("insertMap is empty")
+	}
+	if ds.Db == nil {
+		return []int64{}, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	orm := nsql.NewInsertOrm().Table(tableName).Insert(insertMap...)
+	return InsertsByOrm(orm, ds)
+}
+func InsertsByOrm(orm *nsql.InsertOrm, ds DataSource) ([]int64, error) {
+	if ds.Db == nil {
+		return []int64{}, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr, params, err := orm.ToPrepareSql()
+	if err != nil {
+		return nil, err
+	}
+	return InsertsBySql(sqlStr, params, ds)
+}
+
 // 预处理插入 返回最后自增ID
-func PrepareInsert(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
+func InsertsBySql(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "insert") {
 		return nil, errors.New("must be a insert sql")
 	}
@@ -241,7 +304,17 @@ func PrepareInsert(sqlStr string, params [][]any, ds DataSource) ([]int64, error
 	return ids, err
 }
 
-func Update(sqlStr string, params []any, ds DataSource) (int64, error) {
+func UpdateByOrm(orm *nsql.UpdateOrm, ds DataSource) (int64, error) {
+	if ds.Db == nil {
+		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr, params, err := orm.ToSql(true)
+	if err != nil {
+		return 0, err
+	}
+	return UpdateBySql(sqlStr, params, ds)
+}
+func UpdateBySql(sqlStr string, params []any, ds DataSource) (int64, error) {
 
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "update") {
 		return 0, errors.New("must be a update sql")
@@ -269,7 +342,17 @@ func Update(sqlStr string, params []any, ds DataSource) (int64, error) {
 	return num, nil
 }
 
-func PrepareUpdate(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
+func UpdatesByOrm(orm *nsql.UpdateOrm, ds DataSource) ([]int64, error) {
+	if ds.Db == nil {
+		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr, params, err := orm.ToPrepareSql()
+	if err != nil {
+		return nil, err
+	}
+	return UpdatesBySql(sqlStr, params, ds)
+}
+func UpdatesBySql(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
 
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "update") {
 		return nil, errors.New("must be a update sql")
@@ -320,8 +403,17 @@ func PrepareUpdate(sqlStr string, params [][]any, ds DataSource) ([]int64, error
 	}
 	return ids, err
 }
-
-func Delete(sqlStr string, params []any, ds DataSource) (int64, error) {
+func DeleteByOrm(orm *nsql.DeleteOrm, ds DataSource) (int64, error) {
+	if ds.Db == nil {
+		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr, params, err := orm.ToSql(true)
+	if err != nil {
+		return 0, err
+	}
+	return DeleteBySql(sqlStr, params, ds)
+}
+func DeleteBySql(sqlStr string, params []any, ds DataSource) (int64, error) {
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "delete") {
 		return 0, errors.New("must be a delete sql")
 	}
@@ -347,14 +439,149 @@ func Delete(sqlStr string, params []any, ds DataSource) (int64, error) {
 	}
 	return num, nil
 }
-
-func PrepareDelete(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
+func DeletesByOrm(orm *nsql.DeleteOrm, ds DataSource) ([]int64, error) {
+	if ds.Db == nil {
+		return nil, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr, params, err := orm.ToPrepareSql()
+	if err != nil {
+		return nil, err
+	}
+	return DeletesBySql(sqlStr, params, ds)
+}
+func DeletesBySql(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
 	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "delete") {
 		return nil, errors.New("must be a delete sql")
 	}
 	if ds.Db == nil && ds.Tx == nil {
 		return nil, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
 	}
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+
+	var stmt *sql.Stmt
+	var err error
+	if ds.Tx != nil {
+		stmt, err = ds.Tx.Prepare(sqlStr)
+	} else if ds.Db != nil {
+		stmt, err = ds.Db.Prepare(sqlStr)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var ret sql.Result
+
+	ids := make([]int64, 0)
+
+	for _, param := range params {
+		ret, err = stmt.Exec(param...)
+		if err != nil {
+			ids = append(ids, 0) // 如果执行失败，返回0
+			continue
+		}
+		id, err := ret.RowsAffected() // 操作影响的行数
+		if err != nil {
+			ids = append(ids, 0)
+		}
+		ids = append(ids, id)
+	}
+	return ids, err
+}
+func UpsertByMap(tableName string, insertMap map[string]any, ds DataSource) (int64, error) {
+	if tableName == "" {
+		return 0, errors.New("tableName is empty")
+	}
+	if ds.Db == nil {
+		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	if len(insertMap) == 0 {
+		return 0, nil
+	}
+	orm := nsql.NewUpsertOrm().Table(tableName).Insert(insertMap).Update(nmap.Keys(insertMap))
+	return UpsertByOrm(orm, ds)
+}
+
+func UpsertByOrm(orm *nsql.UpsertOrm, ds DataSource) (int64, error) {
+	if ds.Db == nil {
+		return 0, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr, params, err := orm.ToSql(true)
+	if err != nil {
+		return 0, err
+	}
+	return UpsertBySql(sqlStr, params, ds)
+}
+func UpsertBySql(sqlStr string, params []any, ds DataSource) (int64, error) {
+
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "duplicate key") {
+		return 0, errors.New("must be a upsert sql")
+	}
+
+	if ds.Db == nil && ds.Tx == nil {
+		return 0, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
+	}
+	sqlStr = prepareConvert(sqlStr, ds.DriverName)
+
+	var ret sql.Result
+	var err error
+	if ds.Tx != nil {
+		ret, err = ds.Tx.Exec(sqlStr, params...) // 如果有事务，则在事务中执行
+	} else if ds.Db != nil {
+		ret, err = ds.Db.Exec(sqlStr, params...) // 直接执行插入语句
+	}
+	if err != nil {
+		return 0, err
+	}
+	num, err := ret.RowsAffected() // 操作影响的行数
+	if err != nil {
+		return 0, err
+	}
+	return num, nil
+}
+
+func UpsertsByMap(tableName string, insertMap []map[string]any, ds DataSource) ([]int64, error) {
+	if tableName == "" {
+		return []int64{}, errors.New("tableName is empty")
+	}
+	if ds.Db == nil {
+		return []int64{}, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	if len(insertMap) == 0 {
+		return []int64{}, nil
+	}
+	orm := nsql.NewUpsertOrm().Table(tableName).Insert(insertMap...).Update(nmap.Keys(insertMap[0]))
+	return UpsertsByOrm(orm, ds)
+}
+func UpsertsByOrm(orm *nsql.UpsertOrm, ds DataSource) ([]int64, error) {
+	if ds.Db == nil {
+		return []int64{}, errors.New("db not allowed to be nil,need to instantiate yourself")
+	}
+	sqlStr, params, err := orm.ToPrepareSql()
+	if err != nil {
+		return nil, err
+	}
+	return UpsertsBySql(sqlStr, params, ds)
+}
+func UpsertsBySql(sqlStr string, params [][]any, ds DataSource) ([]int64, error) {
+
+	if sqlStr == "" || !strings.Contains(strings.ToLower(sqlStr), "duplicate key") {
+		return nil, errors.New("must be a upsert sql")
+	}
+
+	if ds.Db == nil && ds.Tx == nil {
+		return []int64{}, errors.New("db and tx not allowed to be all nil,need to instantiate yourself")
+	}
+
+	paramLen := 0
+	for n, param := range params {
+		//检查每一个参数的长度是否一致
+		if n != 0 && len(param) != paramLen {
+			return nil, errors.New("param length must be equal")
+		}
+		paramLen = len(param)
+	}
+
 	sqlStr = prepareConvert(sqlStr, ds.DriverName)
 
 	var stmt *sql.Stmt

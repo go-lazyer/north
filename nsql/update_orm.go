@@ -65,7 +65,7 @@ func (s *UpdateOrm) ToSql(prepare bool) (string, []any, error) {
 		table = s.tableAlias
 	}
 
-	params := make([]any, 0, 10)
+	params := make([]any, 0)
 	var sql bytes.Buffer
 	sql.WriteString("update " + s.tableName + " set ")
 	n := 0
@@ -107,7 +107,12 @@ func (s *UpdateOrm) ToSql(prepare bool) (string, []any, error) {
 					return "", nil, err
 				}
 				params = append(params, param...)
-				sql.WriteString(fmt.Sprintf(" WHEN %v THEN %v", source, constant.PLACE_HOLDER_GO))
+
+				if prepare {
+					sql.WriteString(fmt.Sprintf(" WHEN %v THEN %v", source, constant.PLACE_HOLDER_GO))
+				} else {
+					sql.WriteString(fmt.Sprintf(" WHEN %v THEN %v", source, v))
+				}
 				params = append(params, v)
 			}
 			sql.WriteString(" else " + field)

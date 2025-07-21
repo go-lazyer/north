@@ -162,3 +162,54 @@ func TestGenerator_UpdatesSql(t *testing.T) {
 	gen := NewUpdateOrm().Table("user").Where(query).Update(f1, f2)
 	fmt.Println(gen.ToSql(false))
 }
+
+func TestGenerator_UpsertSql(t *testing.T) {
+	// insert into user ( name , id , age ) values( 'lazyer' , '1' , '21' ) on duplicate key update name='lazyer',age='21'
+	set := map[string]any{
+		"id":   1,
+		"age":  21,
+		"name": "lazyer",
+	}
+
+	upMap := []string{"age", "name"}
+
+	gen := NewUpsertOrm().Table("user").Insert(set).Update(upMap)
+	fmt.Println(gen.ToSql(false))
+}
+
+func TestGenerator_UpsertsSql(t *testing.T) {
+
+	set := map[string]any{
+		"id":   1,
+		"age":  21,
+		"name": "lazyer",
+	}
+	set1 := map[string]any{
+		"id":   2,
+		"age":  211,
+		"name": "lazyer1",
+	}
+
+	upMap := []string{"age", "name"}
+
+	gen := NewUpsertOrm().Table("user").Insert(set, set1).Update(upMap)
+	fmt.Println(gen.ToSql(false))
+}
+func TestGenerator_PrepareUpsertSql(t *testing.T) {
+
+	set := map[string]any{
+		"id":   1,
+		"age":  21,
+		"name": "lazyer",
+	}
+	set1 := map[string]any{
+		"id":   2,
+		"age":  211,
+		"name": "lazyer1",
+	}
+
+	upMap := []string{"age", "name"}
+
+	gen := NewUpsertOrm().Table("user").Insert(set, set1).Update(upMap)
+	fmt.Println(gen.ToPrepareSql())
+}

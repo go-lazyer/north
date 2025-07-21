@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/go-lazyer/north/constant"
-	"github.com/go-lazyer/north/nmap"
 	"github.com/go-lazyer/north/nsql"
 	// _ "github.com/go-sql-driver/mysql"
 )
@@ -29,7 +28,7 @@ func TestCount(t *testing.T) {
 	}
 	orm := nsql.NewCountOrm().Table("user")
 	sqlStr, prarm, _ := orm.ToSql(true)
-	fmt.Println(Count(sqlStr, prarm, ds))
+	fmt.Println(CountBySql(sqlStr, prarm, ds))
 }
 
 func TestPrepareCount(t *testing.T) {
@@ -43,7 +42,7 @@ func TestPrepareCount(t *testing.T) {
 	params := make([][]any, 0)
 	params = append(params, []any{"2024-01-01 00:00:00", "2024-12-31 23:59:59"})
 	params = append(params, []any{"2025-01-01 00:00:00", "2025-12-31 23:59:59"})
-	res, _ := PrepareCount(sqlStr, prarms, ds)
+	res, _ := PrepareCountBySql(sqlStr, prarms, ds)
 	fmt.Println(res)
 }
 
@@ -51,32 +50,25 @@ type User struct {
 	Id         sql.NullString `orm:"id" `             //
 	Name       sql.NullString `orm:"name" default:""` // 昵称
 	Age        sql.NullInt64  `orm:"age" default:""`  // 年龄
-	Sex        sql.NullString `orm:"sex" default:""`  // 性别
 	CreateTime sql.NullTime   `orm:"create_time" `    // 用户名
 }
-
-func TestQuery(t *testing.T) {
-	ds, err := GetDataSource()
-	if err != nil {
-		fmt.Print(err)
-	}
-	query := nsql.NewBetweenQuery("create_time", "2023-01-01 00:00:00", "2023-12-31 23:59:59")
-	orm := nsql.NewSelectOrm().Result("id", "nickname", "username", "create_time").Table("user").Where(query).PageSize(2)
-	sqlStr, prarm, _ := orm.ToSql(true)
-	fmt.Println(Query[User](sqlStr, prarm, ds))
+type UserExtend struct {
+	User
+	Sex sql.NullString `orm:"sex" default:""` // 性别
 }
 
-func TestPrepareQuery(t *testing.T) {
+func TestQueryByOrm(t *testing.T) {
 	ds, err := GetDataSource()
 	if err != nil {
 		fmt.Print(err)
 	}
-	query1 := nsql.NewBetweenQuery("create_time", "2023-01-01 00:00:00", "2023-12-31 23:59:59")
-	query2 := nsql.NewBetweenQuery("create_time", "2024-01-01 00:00:00", "2024-12-31 23:59:59")
-	orm := nsql.NewSelectOrm().Table("user").Where(query1, query2).PageSize(1)
-	sqlStr, prarms, _ := orm.ToPrepareSql()
-	res, _ := PrepareQuery[User](sqlStr, prarms, ds)
-	fmt.Println(res)
+	query := nsql.NewBetweenQuery("create_time", "2024-01-01 00:00:00", "2025-12-31 23:59:59")
+	orm := nsql.NewSelectOrm().Table("user").Where(query).PageSize(10)
+	users, err := QueryByOrm[UserExtend](orm, ds)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println(users)
 }
 
 func TestInsert(t *testing.T) {
@@ -84,69 +76,62 @@ func TestInsert(t *testing.T) {
 	if err != nil {
 		fmt.Print(err)
 	}
-
-	m := map[string]any{
-		"name":        "lilie",
-		"sex":         "boy",
-		"age":         "10",
-		"create_time": "2023-01-01 00:00:00",
-	}
-
-	orm := nsql.NewInsertOrm().Table("user").Insert(m)
-	sqlStr, prarm, _ := orm.ToSql(true)
-	fmt.Println(Insert(sqlStr, prarm, ds))
-}
-
-func TestInserts(t *testing.T) {
-	ds, err := GetDataSource()
+	//清空表
+	_, err = DeleteByOrm(nsql.NewDeleteOrm().Table("user").Where(nsql.NewNotNullQuery("id")), ds)
 	if err != nil {
 		fmt.Print(err)
 	}
 
-	m := map[string]any{
-		"name":        "lili",
-		"sex":         "girl",
-		"age":         "20",
-		"create_time": "2023-01-01 00:00:00",
-	}
-
+	//插入单条数据
 	m1 := map[string]any{
-		"name":        "lilie",
+		"id":          1,
+		"name":        "李一一",
 		"sex":         "boy",
-		"age":         "10",
-		"create_time": "2023-01-01 00:00:00",
+		"age":         "11",
+		"create_time": "2021-01-01 00:00:00",
 	}
+	InsertByOrm(nsql.NewInsertOrm().Table("user").Insert(m1), ds)
 
-	orm := nsql.NewInsertOrm().Table("user").Insert(m, m1)
-	sqlStr, prarm, _ := orm.ToSql(true)
-	fmt.Println(Insert(sqlStr, prarm, ds))
-}
-func TestPrepareInsert(t *testing.T) {
-	ds, err := GetDataSource()
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	m := map[string]any{
-		"sex":         "girl",
-		"name":        "lili",
-		"age":         "20",
-		"create_time": "2023-01-01 00:00:00",
-	}
-
-	m1 := map[string]any{
-		"name":        "lilie",
+	//插入多条数据
+	m2 := map[string]any{
+		"id":          2,
+		"name":        "李二二",
 		"sex":         "boy",
-		"age":         "10",
+		"age":         "12",
+		"create_time": "2022-01-01 00:00:00",
+	}
+	m3 := map[string]any{
+		"id":          3,
+		"name":        "李三三",
+		"sex":         "boy",
+		"age":         "13",
 		"create_time": "2023-01-01 00:00:00",
 	}
+	InsertByOrm(nsql.NewInsertOrm().Table("user").Insert(m2, m3), ds)
 
-	orm := nsql.NewInsertOrm().Table("user").Insert(m, m1)
-	sqlStr, prarm, _ := orm.ToPrepareSql()
-
-	fmt.Println(sqlStr, prarm, err)
-
-	fmt.Println(PrepareInsert(sqlStr, prarm, ds))
+	//批量插入数据
+	m4 := map[string]any{
+		"id":          4,
+		"name":        "李四四",
+		"sex":         "boy",
+		"age":         "14",
+		"create_time": "2024-01-01 00:00:00",
+	}
+	m5 := map[string]any{
+		"id":          5,
+		"name":        "李五五",
+		"sex":         "boy",
+		"age":         "15",
+		"create_time": "2025-01-01 00:00:00",
+	}
+	m6 := map[string]any{
+		"id":          6,
+		"name":        "李六六",
+		"sex":         "boy",
+		"age":         "16",
+		"create_time": "2026-01-01 00:00:00",
+	}
+	InsertsByOrm(nsql.NewInsertOrm().Table("user").Insert(m4, m5, m6), ds)
 }
 
 func TestUpdate(t *testing.T) {
@@ -155,95 +140,113 @@ func TestUpdate(t *testing.T) {
 		fmt.Print(err)
 	}
 
-	m := map[string]any{
-		"name": "hanmeimei",
-		"sex":  "girl",
-		"age":  "20",
+	m1 := map[string]any{
+		"sex": "girl",
+		"age": "21",
 	}
+	UpdateByOrm(nsql.NewUpdateOrm().Table("user").Update(m1).Where(nsql.NewEqualQuery("name", "李一一")), ds)
 
-	orm := nsql.NewUpdateOrm().Table("user").Update(m).Where(nsql.NewEqualQuery("id", "1"))
-	sqlStr, prarm, err := orm.ToSql(true)
-	if err != nil {
-		fmt.Print(err)
-	}
-	fmt.Println(Update(sqlStr, prarm, ds))
-}
-
-func TestUpdates(t *testing.T) {
-
-	ds, err := GetDataSource()
-	if err != nil {
-		fmt.Print(err)
-	}
-
-	f1 := map[string]any{
-		"sex":        "boy",
-		"age":        "20",
-		"_condition": nsql.NewEqualQuery("id", "1"),
-	}
-	f2 := map[string]any{
+	// UPDATE
+	// 	USER
+	// SET
+	// 	sex = CASE
+	// 	WHEN user.name = '李二二' THEN
+	// 		girl
+	// 	WHEN user.name = '李三三' THEN
+	// 		girl
+	// 	ELSE
+	// 		sex
+	// 	END,
+	// 	age = CASE
+	// 	WHEN user.name = '李二二' THEN
+	// 		22
+	// 	WHEN user.name = '李三三' THEN
+	// 		23
+	// 	ELSE
+	// 		age
+	// 	END
+	// WHERE
+	// 	user.name in('李二二', '李三三')
+	m2 := map[string]any{
 		"sex":        "girl",
-		"age":        "40",
-		"_condition": nsql.NewEqualQuery("name", "lilie"),
+		"age":        "22",
+		"_condition": nsql.NewEqualQuery("name", "李二二"),
 	}
 
-	// query := nsql.NewEqualQuery("create_time", "2025-01-01 00:00:00")
-	query := nsql.NewNullQuery("create_time")
-	orm := nsql.NewUpdateOrm().Table("user").Where(query).Update(f1, f2)
-	sqlStr, prarm, err := orm.ToSql(true)
-	fmt.Println(sqlStr, prarm)
-	if err != nil {
-		fmt.Print(err)
+	m3 := map[string]any{
+		"sex":        "girl",
+		"age":        "23",
+		"_condition": nsql.NewEqualQuery("name", "李三三"),
 	}
-	fmt.Println(Update(sqlStr, prarm, ds))
+	UpdateByOrm(nsql.NewUpdateOrm().Table("user").Update(m2, m3).Where(nsql.NewInQuery("name", []string{"李二二", "李三三"})), ds)
+
+	m4 := map[string]any{
+		"sex": "girl",
+		"age": "24",
+	}
+
+	m5 := map[string]any{
+		"sex": "girl",
+		"age": "25",
+	}
+	m6 := map[string]any{
+		"sex": "girl",
+		"age": "26",
+	}
+
+	q4 := nsql.NewEqualQuery("name", "李四四")
+	q5 := nsql.NewEqualQuery("name", "李五五")
+	q6 := nsql.NewEqualQuery("name", "李六六")
+
+	UpdatesByOrm(nsql.NewUpdateOrm().Table("user").Update(m4, m5, m6).Where(q4, q5, q6), ds)
+
 }
 
-func TestPrepareUpdates(t *testing.T) {
-
+func TestUpsert(t *testing.T) {
 	ds, err := GetDataSource()
 	if err != nil {
 		fmt.Print(err)
 	}
 
-	f1 := map[string]any{
-		"age": "20",
-		"sex": "boy",
-	}
-	f2 := map[string]any{
-		"age":  "40",
-		"sex1": "girl",
+	//插入单条数据
+	m1 := map[string]any{
+		"id":          1,
+		"name":        "李11",
+		"sex":         "boy",
+		"age":         "21",
+		"create_time": "2021-01-01 00:00:00",
 	}
 
-	query1 := nsql.NewEqualQuery("create_time", "2023-01-01 00:00:00")
-	query2 := nsql.NewEqualQuery("create_time", "2024-01-01 00:00:00")
-	// query3 := nsql.NewEqualQuery("create_time", "2025-01-01 00:00:00")
-	// q := nsql.NewNotNullQuery("create_time")
-	orm := nsql.NewUpdateOrm().Table("user").Where(query1, query2).Update(f1, f2)
-	sqlStr, prarms, err := orm.ToPrepareSql()
-	fmt.Println(sqlStr, prarms, err)
-	if err != nil {
-		fmt.Print(err)
+	UpsertByMap("user", m1, ds)
+	//插入单条数据
+	m7 := map[string]any{
+		"id":          7,
+		"name":        "李七七",
+		"sex":         "boy",
+		"age":         "17",
+		"create_time": "2027-01-01 00:00:00",
 	}
-	fmt.Println(PrepareUpdate(sqlStr, prarms, ds))
+
+	UpsertByMap("user", m7, ds)
+
+	//插入多条数据
+	m2 := map[string]any{
+		"id":          2,
+		"name":        "李22",
+		"sex":         "boy",
+		"age":         "22",
+		"create_time": "2022-01-01 00:00:00",
+	}
+	m8 := map[string]any{
+		"id":          8,
+		"name":        "李八八",
+		"sex":         "boy",
+		"age":         "18",
+		"create_time": "2028-01-01 00:00:00",
+	}
+	UpsertsByMap("user", []map[string]any{m2, m8}, ds)
 }
 
-func Test_Main(t *testing.T) {
-	f2 := map[string]any{
-		"age":    "40",
-		"sex1":   "girl",
-		"name":   "girl",
-		"create": "girl",
-	}
-	fields := nmap.Keys(f2)
-
-	for i := 0; i < 10; i++ {
-		for _, field := range fields {
-			fmt.Print(field)
-		}
-		fmt.Println("")
-	}
-
-}
 func TestDelete(t *testing.T) {
 	ds, err := GetDataSource()
 	if err != nil {
@@ -253,24 +256,24 @@ func TestDelete(t *testing.T) {
 	orm := nsql.NewDeleteOrm().Table("user").Where(query).PageSize(2)
 	sqlStr, param, _ := orm.ToSql(true)
 	fmt.Print(sqlStr, param)
-	fmt.Println(Delete(sqlStr, param, ds))
+	fmt.Println(DeleteBySql(sqlStr, param, ds))
 }
 
-func TestPrepareDelete(t *testing.T) {
-	ds, err := GetDataSource()
-	if err != nil {
-		fmt.Print(err)
-	}
-	query1 := nsql.NewBetweenQuery("create_time", "2023-01-01 00:00:00", "2023-12-31 23:59:59")
-	query2 := nsql.NewBetweenQuery("create_time", "2024-01-01 00:00:00", "2024-12-31 23:59:59")
-	orm := nsql.NewDeleteOrm().Table("user").Where(query1, query2).PageSize(1)
-	sqlStr, prarms, _ := orm.ToPrepareSql()
+// func TestPrepareDelete(t *testing.T) {
+// 	ds, err := GetDataSource()
+// 	if err != nil {
+// 		fmt.Print(err)
+// 	}
+// 	query1 := nsql.NewBetweenQuery("create_time", "2023-01-01 00:00:00", "2023-12-31 23:59:59")
+// 	query2 := nsql.NewBetweenQuery("create_time", "2024-01-01 00:00:00", "2024-12-31 23:59:59")
+// 	orm := nsql.NewDeleteOrm().Table("user").Where(query1, query2).PageSize(1)
+// 	sqlStr, prarms, _ := orm.ToPrepareSql()
 
-	fmt.Print(sqlStr, prarms)
+// 	fmt.Print(sqlStr, prarms)
 
-	res, err := PrepareDelete(sqlStr, prarms, ds)
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println(res)
-}
+//		res, err := PrepareDelete(sqlStr, prarms, ds)
+//		if err != nil {
+//			fmt.Println(err)
+//		}
+//		fmt.Println(res)
+//	}

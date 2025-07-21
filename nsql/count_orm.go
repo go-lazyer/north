@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"strings"
 )
 
 type CountOrm struct {
@@ -75,8 +74,8 @@ func (s *CountOrm) ToSql(prepare bool) (string, []any, error) {
 	sql.WriteString("select ")
 
 	result := " count(*) count  "
-	if len(s.columns) == 1 {
-		result = strings.Join(s.columns, ",")
+	if len(s.columns) > 0 {
+		result = s.columns[0]
 	}
 
 	sql.WriteString(result)
@@ -131,11 +130,11 @@ func (s *CountOrm) ToPrepareSql() (string, [][]any, error) {
 	}
 
 	var sql bytes.Buffer
-	sql.WriteString("select  count(*) count  ")
+	sql.WriteString("select ")
 
-	result := ""
-	if len(s.columns) == 1 {
-		result = strings.Join(s.columns, ",")
+	result := " count(*) count  "
+	if len(s.columns) > 0 {
+		result = s.columns[0]
 	}
 
 	sql.WriteString(result)
