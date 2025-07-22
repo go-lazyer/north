@@ -511,7 +511,7 @@ func getDaoTemplate() string {
 		"database/sql"
 		"github.com/go-lazyer/north"
 		"github.com/go-lazyer/north/nsql"
-		"analysis/library/database"
+		"im/library/database"
 		"{{.ModelPackagePath}}"
 	)
 
@@ -536,7 +536,7 @@ func getDaoTemplate() string {
 		{{end}}
 		orm := nsql.NewSelectOrm().Table(model.TABLE_NAME).Where(query)
 		ms,err := north.QueryByOrm[model.{{.TableNameUpperCamel}}Model](orm, ds)
-		if err != nil {
+		if len(ms) == 0 ||err != nil {
 			return model.{{.TableNameUpperCamel}}Model{}, err
 		}
 		return ms[0], nil
@@ -549,7 +549,7 @@ func getDaoTemplate() string {
 			return model.{{.TableNameUpperCamel}}Model{}, err
 		}
 		ms,err := north.QueryByOrm[model.{{.TableNameUpperCamel}}Model](orm, ds)
-		if err != nil {
+		if len(ms) == 0 || err != nil {
 			return model.{{.TableNameUpperCamel}}Model{}, err
 		}
 		return ms[0], nil

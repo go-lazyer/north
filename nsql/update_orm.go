@@ -193,14 +193,10 @@ func (s *UpdateOrm) ToPrepareSql() (string, [][]any, error) {
 	fields := nmap.Keys(s.update[0])
 
 	for i, update := range s.update {
-		if len(update) != len(s.update[0]) {
-			return "", nil, fmt.Errorf("update map %d has different length from the first update map", i)
-		}
-		n := 0
-		for _, field := range fields {
+		for n, field := range fields {
 			value, ok := update[field]
 			if !ok {
-				return "", nil, fmt.Errorf("missing value for field %s in update map", field)
+				return "", nil, fmt.Errorf("missing value for field %s in update map. ", field)
 			}
 
 			if i == 0 { //多个update ，只把第一个拼写到sql 中
@@ -217,7 +213,6 @@ func (s *UpdateOrm) ToPrepareSql() (string, [][]any, error) {
 			} else {
 				params[i] = append(params[i], value)
 			}
-			n = n + 1
 		}
 	}
 	// 添加查询
