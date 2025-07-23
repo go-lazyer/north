@@ -2,16 +2,26 @@ package nslice
 
 // 切割slice 每shareNums一份,最后一个shareNums可能比shareNums少
 func Cut[T any](slice []T, shareNums int) [][]T {
+	// 处理无效的shareNums输入
+	if shareNums <= 0 {
+		return [][]T{}
+	}
 
-	resSlice := make([][]T, 0)
+	sliceLen := len(slice)
+	// 计算实际的组数（向上取整）
+	numGroups := (sliceLen + shareNums - 1) / shareNums
+	resSlice := make([][]T, 0, numGroups) // 预分配内存提高性能
 
-	for i := 0; i < len(slice)/shareNums+1; i++ {
+	for i := 0; i < numGroups; i++ {
 		startIndex := i * shareNums
-		endIndex := (i + 1) * shareNums
-		if endIndex > len(slice) {
-			endIndex = len(slice)
+		endIndex := startIndex + shareNums
+		if endIndex > sliceLen {
+			endIndex = sliceLen
 		}
-		resSlice = append(resSlice, slice[startIndex:endIndex])
+		// 确保只添加非空分组
+		if startIndex < endIndex {
+			resSlice = append(resSlice, slice[startIndex:endIndex])
+		}
 	}
 	return resSlice
 }
