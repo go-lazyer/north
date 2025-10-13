@@ -1,5 +1,7 @@
 package nslice
 
+import "fmt"
+
 // 切割slice 每shareNums一份,最后一个shareNums可能比shareNums少
 func Cut[T any](slice []T, shareNums int) [][]T {
 	// 处理无效的shareNums输入
@@ -24,4 +26,34 @@ func Cut[T any](slice []T, shareNums int) [][]T {
 		}
 	}
 	return resSlice
+}
+
+// 将[]map[string]any 转为 [][]any, 第一行是标题行
+func ToCsv(data []map[string]any) [][]string {
+	if len(data) == 0 {
+		return [][]string{}
+	}
+	// 提取标题行
+	headers := make([]string, 0, len(data[0]))
+	for key := range data[0] {
+		headers = append(headers, key)
+	}
+
+	result := make([][]string, 0, len(data)+1)
+	result = append(result, headers)
+
+	// 提取数据行
+	for _, record := range data {
+		row := make([]string, 0, len(record))
+		for _, header := range headers {
+			val, ok := record[header]
+			if !ok || val == nil {
+				row = append(row, "")
+			} else {
+				row = append(row, fmt.Sprintf("%v", val))
+			}
+		}
+		result = append(result, row)
+	}
+	return result
 }

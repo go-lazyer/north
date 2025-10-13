@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -180,4 +181,19 @@ func toNumber[T Number](i any) (T, bool) {
 		return T(s), true
 	}
 	return 0, false
+}
+func JoinAny(slice []any, sep string) string {
+	parts := make([]string, len(slice))
+	for i, v := range slice {
+		parts[i] = fmt.Sprint(v)
+	}
+	return strings.Join(parts, sep)
+}
+
+func ToIntSlice(slice []string) []int32 {
+	parts := make([]int32, len(slice))
+	for i, v := range slice {
+		parts[i] = ToInt32(v)
+	}
+	return parts
 }

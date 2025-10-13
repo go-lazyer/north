@@ -11,4 +11,4 @@ go get github.com/go-lazyer/north@latest
 ```
 #### 2、介绍
 
-常用工具包集合
+n系列项目孵化器，每一个项目到底一定规模后，都会提升为顶级项目

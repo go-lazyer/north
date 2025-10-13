@@ -1,5 +1,7 @@
 package ntype
 
+import "strconv"
+
 func IsBool(v any) bool {
 	switch v.(type) {
 	case bool:
@@ -29,7 +31,15 @@ func IsMap(v any) bool {
 
 func IsSlice(v any) bool {
 	switch v.(type) {
-	case []any, []int, []string: // 常见 slice 类型
+	case []any, []int, []uint8, []uint16, []uint32, []uint64, []string: // 常见 slice 类型
+		return true
+	default:
+		return false
+	}
+}
+func IsString(v any) bool {
+	switch v.(type) {
+	case string:
 		return true
 	default:
 		return false
@@ -50,7 +60,7 @@ func IsNumeric(inter any) bool {
 	if inter == nil {
 		return false
 	}
-	switch inter.(type) {
+	switch s := inter.(type) {
 	case int:
 		return true
 	case int8:
@@ -65,6 +75,12 @@ func IsNumeric(inter any) bool {
 		return true
 	case float64:
 		return true
+	case string:
+		if _, err := strconv.ParseFloat(s, 64); err == nil {
+			return true
+		} else {
+			return false
+		}
 	default:
 		return false
 	}
