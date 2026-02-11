@@ -57,3 +57,33 @@ func ToCsv(data []map[string]any) [][]string {
 	}
 	return result
 }
+
+// 删除所有等于 val 的元素，保持原有顺序
+func Remove[T comparable](s []T, indice int) []T {
+	return Removes(s, []int{indice})
+}
+
+// 删除指定索引集合中的元素，保持顺序
+func Removes[T any](s []T, indices []int) []T {
+	if len(indices) == 0 {
+		return s
+	}
+	toRemove := make(map[int]bool, len(indices))
+	for _, idx := range indices {
+		toRemove[idx] = true
+	}
+	j := 0
+	for i, v := range s {
+		if !toRemove[i] {
+			s[j] = v
+			j++
+		}
+	}
+	return s[:j]
+}
+
+// // 使用示例：
+// s := []string{"a", "b", "c", "d", "e"}
+// indicesToRemove := map[int]bool{1: true, 3: true}
+// s = removeByIndices(s, indicesToRemove)
+// // 结果: ["a", "c", "e"]

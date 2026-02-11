@@ -1,6 +1,9 @@
 package nmap
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // city=5YyX5Lqs; manualCity=5YyX5Lqs; token=7053d25529d55e028c3533f5fc9a0c58
 // 转为这个样式
@@ -35,9 +38,9 @@ func ToMap(obj any) (map[string]any, error) {
 	}
 
 	var result map[string]any
-	err = json.Unmarshal(data, &result)
-	if err != nil {
-		return nil, err
-	}
+
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber() // 👈 关键！让数字保持为 json.Number 而非 float64
+	decoder.Decode(&result)
 	return result, nil
 }

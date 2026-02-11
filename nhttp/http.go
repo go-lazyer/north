@@ -20,6 +20,7 @@ const (
 	CONTENT_TYPE_STREAM = "application/octet-stream"
 	CONTENT_TYPE_FORM   = "application/x-www-form-urlencoded"
 	CONTENT_TYPE_JSON   = "application/json"
+	CONTENT_TYPE_TEXT   = "text/plain"
 	CONTENT_TYPE_DATA   = "multipart/form-data"
 )
 
@@ -164,7 +165,23 @@ func (r *Request) Timeout(timeout int) *Request {
 func (r *Request) Get(u string) (Response, error) {
 	return r.Do("GET", u, nil)
 }
+func (r *Request) PatchJson(u string, json string) (Response, error) {
+	if r.header == nil {
+		r.header = make(map[string]string)
+	}
+	r.header["content-type"] = CONTENT_TYPE_JSON
+
+	return r.Do("PATCH", u, strings.NewReader(json))
+}
 func (r *Request) PostJson(u string, json string) (Response, error) {
+	if r.header == nil {
+		r.header = make(map[string]string)
+	}
+	r.header["content-type"] = CONTENT_TYPE_JSON
+
+	return r.Do("POST", u, strings.NewReader(json))
+}
+func (r *Request) PostText(u string, json string) (Response, error) {
 	if r.header == nil {
 		r.header = make(map[string]string)
 	}

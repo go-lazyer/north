@@ -43,6 +43,8 @@ func ToString(i any) string {
 	switch s := i.(type) {
 	case string:
 		return s
+	case []string:
+		return strings.Join(s, ",")
 	case bool:
 		return strconv.FormatBool(s)
 	case float64:
@@ -164,8 +166,14 @@ func toNumber[T Number](i any) (T, bool) {
 	case float64:
 		return T(s), true
 	case string:
-		if num, err := strconv.ParseFloat(s, 64); err == nil {
-			return T(num), true
+		if strings.Contains(s, ".") {
+			if num, err := strconv.ParseFloat(s, 64); err == nil {
+				return T(num), true
+			}
+		} else {
+			if num, err := strconv.ParseInt(s, 10, 64); err == nil {
+				return T(num), true
+			}
 		}
 		return 0, false
 	case bool:
@@ -182,7 +190,7 @@ func toNumber[T Number](i any) (T, bool) {
 	}
 	return 0, false
 }
-func JoinAny(slice []any, sep string) string {
+func JoinAny[T any](slice []T, sep string) string {
 	parts := make([]string, len(slice))
 	for i, v := range slice {
 		parts[i] = fmt.Sprint(v)
