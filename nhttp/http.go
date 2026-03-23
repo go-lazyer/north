@@ -2,6 +2,7 @@ package nhttp
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -24,6 +25,42 @@ const (
 	CONTENT_TYPE_DATA   = "multipart/form-data"
 )
 
+var defaultHttpClient = httpClient()
+
+type BasicAuth struct {
+	Username string
+	Password string
+}
+
+type Request struct {
+	header    map[string]string
+	timeout   int
+	basicAuth BasicAuth
+	client    *http.Client
+}
+
+type Response struct {
+	Body   []byte
+	Status int
+	Header http.Header
+	Cookie []*http.Cookie
+}
+
+func NewRequest() *Request {
+	return &Request{client: defaultHttpClient}
+}
+
+func httpClient() *http.Client {
+	return &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			req.Header.Set("Cookie", "")
+			req.Header.Set("Referer", "")
+			req.Header.Set("content-type", "")
+			return nil
+		},
+	}
+}
+
 func (r *Request) Do(method, u string, reader io.Reader) (Response, error) {
 
 	if u == "" {
@@ -33,19 +70,19 @@ func (r *Request) Do(method, u string, reader io.Reader) (Response, error) {
 		return Response{}, errors.New("method is  null")
 	}
 
-	req, _ := http.NewRequest(method, u, reader)
+	req, err := http.NewRequest(method, u, reader)
+	if err != nil {
+		return Response{}, err
+	}
 
-	client := http.Client{
-		Timeout: time.Duration(r.timeout) * time.Second, // 超时加在这里，是每次调用的超时
-		// CheckRedirect: func(req *http.Request, via []*http.Request) error {
-		// 	return http.ErrUseLastResponse // 禁止自动跟随重定向
-		// },
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			req.Header.Set("Cookie", "")
-			req.Header.Set("Referer", "")
-			req.Header.Set("Content-Type", "")
-			return nil
-		},
+	if r.timeout > 0 {
+		ctx, cancel := context.WithTimeout(req.Context(), time.Duration(r.timeout)*time.Second)
+		defer cancel()
+		req = req.WithContext(ctx)
+	}
+
+	if r.client == nil {
+		r.client = httpClient()
 	}
 	if len(r.header) != 0 {
 		for k, v := range r.header {
@@ -55,7 +92,7 @@ func (r *Request) Do(method, u string, reader io.Reader) (Response, error) {
 	if r.basicAuth.Username != "" && r.basicAuth.Password != "" {
 		req.SetBasicAuth(r.basicAuth.Username, r.basicAuth.Password)
 	}
-	res, err := client.Do(req)
+	res, err := r.client.Do(req)
 	if res != nil {
 		defer res.Body.Close()
 	}
@@ -99,7 +136,7 @@ func (req *Request) ToCurl(method, u string, reader io.Reader) string {
 		// 复制原始 Body（避免读取后丢失）
 		bodyBytes, err := io.ReadAll(reader)
 		if err != nil {
-			return fmt.Sprintf("读取请求体失败: %w", err)
+			return fmt.Sprintf("读取请求体失败: %v", err)
 		}
 		// defer func() {
 		// 	// 重置 Body 以便后续使用
@@ -117,7 +154,7 @@ func (req *Request) ToCurl(method, u string, reader io.Reader) string {
 		escapedBody = strings.ReplaceAll(escapedBody, "\n", `\n`)
 
 		// 根据内容类型决定格式化方式
-		contentType := req.header["Content-Type"]
+		contentType := req.header["content-type"]
 		if strings.Contains(contentType, CONTENT_TYPE_FORM) {
 			fmt.Fprintf(&curlCmd, "-d '%s'", escapedBody)
 		} else {
@@ -127,27 +164,6 @@ func (req *Request) ToCurl(method, u string, reader io.Reader) string {
 	return curlCmd.String()
 }
 
-type BasicAuth struct {
-	Username string
-	Password string
-}
-
-type Request struct {
-	header    map[string]string
-	timeout   int
-	basicAuth BasicAuth
-}
-
-type Response struct {
-	Body   []byte
-	Status int
-	Header http.Header
-	Cookie []*http.Cookie
-}
-
-func NewRequest() *Request {
-	return &Request{}
-}
 func (r *Request) Header(header map[string]string) *Request {
 	r.header = header
 	return r
@@ -185,7 +201,7 @@ func (r *Request) PostText(u string, json string) (Response, error) {
 	if r.header == nil {
 		r.header = make(map[string]string)
 	}
-	r.header["content-type"] = CONTENT_TYPE_JSON
+	r.header["content-type"] = CONTENT_TYPE_TEXT
 
 	return r.Do("POST", u, strings.NewReader(json))
 }
@@ -196,7 +212,7 @@ func (r *Request) PostForm(u string, data url.Values) (Response, error) {
 	if data == nil {
 		data = url.Values{}
 	}
-	r.header["Content-Type"] = CONTENT_TYPE_FORM
+	r.header["content-type"] = CONTENT_TYPE_FORM
 
 	return r.Do("POST", u, bytes.NewBufferString(data.Encode()))
 }
@@ -207,7 +223,7 @@ func (r *Request) PostStream(u string, bin []byte) (Response, error) {
 		r.header = make(map[string]string)
 	}
 
-	r.header["Content-Type"] = CONTENT_TYPE_STREAM
+	r.header["content-type"] = CONTENT_TYPE_STREAM
 
 	return r.Do("POST", u, bytes.NewReader(bin))
 }
@@ -218,7 +234,7 @@ func (r *Request) PutStream(u string, bin []byte) (Response, error) {
 		r.header = make(map[string]string)
 	}
 
-	r.header["Content-Type"] = CONTENT_TYPE_STREAM
+	r.header["content-type"] = CONTENT_TYPE_STREAM
 
 	return r.Do("PUT", u, bytes.NewReader(bin))
 }
@@ -259,9 +275,9 @@ func (r *Request) PostData(u string, fileName string, fileHeader *multipart.File
 	if r.header == nil {
 		r.header = make(map[string]string)
 	}
-	r.header["Content-Type"] = writer.FormDataContentType()
+	r.header["content-type"] = writer.FormDataContentType()
 
-	return r.Do("POST", u, strings.NewReader(body.String()))
+	return r.Do("POST", u, bytes.NewReader(body.Bytes()))
 }
 
 func (r *Request) Delete(u string) (Response, error) {

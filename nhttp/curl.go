@@ -35,7 +35,7 @@ func RequestToCurl(req *http.Request) string {
 		// 复制原始 Body（避免读取后丢失）
 		bodyBytes, err := io.ReadAll(req.Body)
 		if err != nil {
-			return fmt.Sprintf("读取请求体失败: %w", err)
+			return fmt.Sprintf("读取请求体失败: %v", err)
 		}
 		defer func() {
 			// 重置 Body 以便后续使用
@@ -53,7 +53,7 @@ func RequestToCurl(req *http.Request) string {
 		escapedBody = strings.ReplaceAll(escapedBody, "\n", `\n`)
 
 		// 根据内容类型决定格式化方式
-		contentType := req.Header.Get("Content-Type")
+		contentType := req.Header.Get("content-type")
 		if strings.Contains(contentType, "application/x-www-form-urlencoded") {
 			fmt.Fprintf(&curlCmd, " -d '%s'", escapedBody)
 		} else {
