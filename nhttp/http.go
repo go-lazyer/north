@@ -238,6 +238,14 @@ func (r *Request) PutStream(u string, bin []byte) (Response, error) {
 
 	return r.Do("PUT", u, bytes.NewReader(bin))
 }
+func (r *Request) PutJson(u string, json string) (Response, error) {
+	if r.header == nil {
+		r.header = make(map[string]string)
+	}
+	r.header["content-type"] = CONTENT_TYPE_JSON
+
+	return r.Do("PUT", u, strings.NewReader(json))
+}
 
 func (r *Request) PostData(u string, fileName string, fileHeader *multipart.FileHeader, data map[string]string) (Response, error) {
 	body := &bytes.Buffer{}

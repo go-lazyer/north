@@ -58,13 +58,8 @@ func ToCsv(data []map[string]any) [][]string {
 	return result
 }
 
-// 删除所有等于 val 的元素，保持原有顺序
-func Remove[T comparable](s []T, indice int) []T {
-	return Removes(s, []int{indice})
-}
-
 // 删除指定索引集合中的元素，保持顺序
-func Removes[T any](s []T, indices []int) []T {
+func Remove[T any](s []T, indices ...int) []T {
 	if len(indices) == 0 {
 		return s
 	}
@@ -80,6 +75,35 @@ func Removes[T any](s []T, indices []int) []T {
 		}
 	}
 	return s[:j]
+}
+
+// 删除所有等于 val 的元素，保持原有顺序
+func RemoveByValue[T comparable](s []T, val ...T) []T {
+	if len(val) == 0 {
+		return s
+	}
+	toRemove := make(map[T]bool, len(val))
+	for _, v := range val {
+		toRemove[v] = true
+	}
+	j := 0
+	for _, v := range s {
+		if !toRemove[v] {
+			s[j] = v
+			j++
+		}
+	}
+	return s[:j]
+}
+
+// 把slice中旧值替换为新值，保持原有顺序
+func Replace[T comparable](s []T, oldVal, newVal T) []T {
+	for i, v := range s {
+		if v == oldVal {
+			s[i] = newVal
+		}
+	}
+	return s
 }
 
 // // 使用示例：
