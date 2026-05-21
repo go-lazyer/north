@@ -220,19 +220,3 @@ func TestSetNanosecond(t *testing.T) {
 	}
 }
 
-func TestSetWeekStartsAt(t *testing.T) {
-	// 2024-03-07 是周四，以周一为起始，周一应为 2024-03-04
-	thu := time.Date(2024, 3, 7, 10, 0, 0, 0, time.Local)
-	result := ntime.SetWeekStartsAt(thu, ntime.Monday)
-	expected := time.Date(2024, 3, 4, 10, 0, 0, 0, time.Local)
-	if !result.Equal(expected) {
-		t.Errorf("SetWeekStartsAt(周四, 周一起始) expected %v, got %v", expected, result)
-	}
-
-	// 以周日为起始，周日应为 2024-03-03
-	result = ntime.SetWeekStartsAt(thu, ntime.Sunday)
-	expected = time.Date(2024, 3, 3, 10, 0, 0, 0, time.Local)
-	if !result.Equal(expected) {
-		t.Errorf("SetWeekStartsAt(周四, 周日起始) expected %v, got %v", expected, result)
-	}
-}

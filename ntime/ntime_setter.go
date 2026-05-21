@@ -116,9 +116,3 @@ func SetMicrosecond(t time.Time, microsecond int) time.Time {
 func SetNanosecond(t time.Time, nanosecond int) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second(), nanosecond, t.Location())
 }
-
-// SetWeekStartsAt 设置一周的开始日期，返回调整后的时间
-// weekday: 一周从哪天开始（0=周日, 1=周一, ..., 6=周六）
-func SetWeekStartsAt(t time.Time, weekday int) time.Time {
-	return GetDayOfWeek(t, weekday, weekday)
-}
