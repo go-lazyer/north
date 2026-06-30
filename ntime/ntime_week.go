@@ -12,11 +12,16 @@ const (
 	Sunday    = 0 //周日
 )
 
-// 返回t所在周的weekday天是第几天
-func DayOfWeek(t time.Time) int {
+// StartOfWeek 返回t所在周的开始时间，默认周一为一周的第一天
+func StartOfWeek(t time.Time) time.Time {
 	weekday := int(t.Weekday())
-	if weekday == 0 {
-		return 7
-	}
-	return weekday
+	d := t.AddDate(0, 0, -(weekday-1+7)%7)
+	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location())
+}
+
+// EndOfWeek 返回t所在周的结束时间，默认周一为一周的第一天
+func EndOfWeek(t time.Time) time.Time {
+	weekday := int(t.Weekday())
+	d := t.AddDate(0, 0, (7-weekday)%7)
+	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, d.Location())
 }

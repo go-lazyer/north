@@ -7,24 +7,51 @@ import (
 	"github.com/go-lazyer/north/ntime"
 )
 
-func TestDayOfWeek(t *testing.T) {
+func TestStartOfWeek(t *testing.T) {
 	tests := []struct {
 		name string
 		date time.Time
-		want int
+		want time.Time
 	}{
-		{"Monday", time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local), 1},
-		{"Tuesday", time.Date(2026, 5, 19, 0, 0, 0, 0, time.Local), 2},
-		{"Wednesday", time.Date(2026, 5, 20, 0, 0, 0, 0, time.Local), 3},
-		{"Thursday", time.Date(2026, 5, 21, 0, 0, 0, 0, time.Local), 4},
-		{"Friday", time.Date(2026, 5, 22, 0, 0, 0, 0, time.Local), 5},
-		{"Saturday", time.Date(2026, 5, 23, 0, 0, 0, 0, time.Local), 6},
-		{"Sunday", time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local), 7},
+		{"Monday", time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Tuesday", time.Date(2026, 5, 19, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Wednesday", time.Date(2026, 5, 20, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Thursday", time.Date(2026, 5, 21, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Friday", time.Date(2026, 5, 22, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Saturday", time.Date(2026, 5, 23, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Sunday", time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Monday_with_time", time.Date(2026, 5, 18, 10, 30, 45, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
+		{"Sunday_with_time", time.Date(2026, 5, 24, 23, 59, 59, 0, time.Local), time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ntime.DayOfWeek(tt.date); got != tt.want {
-				t.Errorf("DayOfWeek(%v) = %d, want %d", tt.date, got, tt.want)
+			if got := ntime.StartOfWeek(tt.date); got != tt.want {
+				t.Errorf("StartOfWeek(%v) = %v, want %v", tt.date, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestEndOfWeek(t *testing.T) {
+	tests := []struct {
+		name string
+		date time.Time
+		want time.Time
+	}{
+		{"Monday", time.Date(2026, 5, 18, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Tuesday", time.Date(2026, 5, 19, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Wednesday", time.Date(2026, 5, 20, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Thursday", time.Date(2026, 5, 21, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Friday", time.Date(2026, 5, 22, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Saturday", time.Date(2026, 5, 23, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Sunday", time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Monday_with_time", time.Date(2026, 5, 18, 10, 30, 45, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+		{"Sunday_with_time", time.Date(2026, 5, 24, 23, 59, 59, 0, time.Local), time.Date(2026, 5, 24, 0, 0, 0, 0, time.Local)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ntime.EndOfWeek(tt.date); got != tt.want {
+				t.Errorf("EndOfWeek(%v) = %v, want %v", tt.date, got, tt.want)
 			}
 		})
 	}
